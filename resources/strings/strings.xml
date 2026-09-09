@@ -1,4 +1,172 @@
-<strings xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
-    <string id="AppName">Polar Finder</string>
-    <string id="Ready">Ready</string>
+<strings
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd"
+>
+  <string id="AppName">Polar Finder</string>
+  <string id="Locate">Locate</string>
+  <string id="Latitude">Latitude</string>
+  <string id="Longitude">Longitude</string>
+  <string id="Elevation">Elevation (MSL)</string>
+  <string id="NoLocation">Not set</string>
+  <string id="Gps">Acquire GPS</string>
+  <string id="Source">Source</string>
+  <string id="Saved">Saved</string>
+  <string id="Manual">Manual</string>
+  <string id="GpsAdjusted">GPS, adjusted</string>
+  <string id="Format">Coordinate format</string>
+  <string id="Decimal">Decimal</string>
+  <string id="Dms">DMS</string>
+  <string id="Atmosphere">Atmosphere</string>
+  <string id="Calculate">Calculate</string>
+  <string id="Help">Help</string>
+  <string id="FirstUse">Set GPS or coordinates to begin.</string>
+  <string id="ConfirmLocation">Confirm location</string>
+  <string id="SavedHint">
+    Confirm this saved location before calculating.
+  </string>
+  <string id="Ready">Ready</string>
+  <string id="GpsTitle">Acquire GPS</string>
+  <string id="Searching">Searching for GPS</string>
+  <string id="Unavailable">Location unavailable</string>
+  <string id="Permission">Permission required</string>
+  <string id="NoFix">No fix yet; search continues</string>
+  <string id="Elapsed">Elapsed</string>
+  <string id="UseLocation">Use Location</string>
+  <string id="EnterManual">Enter manually</string>
+  <string id="GoodGps">Good GPS</string>
+  <string id="UsableGps">Usable GPS</string>
+  <string id="PoorGps">Poor GPS</string>
+  <string id="LastKnown">Last known</string>
+  <string id="Acknowledge">Use lower-quality fix?</string>
+  <string id="YesUse">Use anyway</string>
+  <string id="Cancel">Cancel</string>
+  <string id="EditLatitude">Edit latitude</string>
+  <string id="EditLongitude">Edit longitude</string>
+  <string id="EditElevation">Edit elevation</string>
+  <string id="Hemisphere">Hemisphere</string>
+  <string id="Sign">Sign</string>
+  <string id="Degrees">Degrees</string>
+  <string id="Fraction">Fraction</string>
+  <string id="Minutes">Minutes</string>
+  <string id="Seconds">Seconds</string>
+  <string id="Done">Done</string>
+  <string id="InvalidCoordinate">Invalid coordinate</string>
+  <string id="Meters">m</string>
+  <string id="Pressure">Pressure</string>
+  <string id="Automatic">Automatic</string>
+  <string id="PressureManual">Manual local hPa</string>
+  <string id="RefractionOff">Refraction off</string>
+  <string id="Temperature">Temperature</string>
+  <string id="Humidity">Relative humidity</string>
+  <string id="Wavelength">Wavelength</string>
+  <string id="VisiblePolaris">Polaris visible 0.55 um</string>
+  <string id="Alert">Calculation alert</string>
+  <string id="On">On</string>
+  <string id="Off">Off</string>
+  <string id="Calculating">Calculating</string>
+  <string id="ReadingPressure">Reading pressure</string>
+  <string id="LoadingEarth">Loading Earth data</string>
+  <string id="ConvertingTime">Converting time</string>
+  <string id="CalculatingPolaris">Calculating Polaris</string>
+  <string id="ObserverCorrections">Applying observer corrections</string>
+  <string id="PreparingDisplay">Preparing display</string>
+  <string id="Restarting">Restarting calculation</string>
+  <string id="CancelHint">Back: cancel</string>
+  <string id="CalculationError">Calculation error</string>
+  <string id="TryAgain">Try again</string>
+  <string id="BackLocation">Back to location</string>
+  <string id="HourAngle">Hour angle</string>
+  <string id="PoleDistance">Pole distance</string>
+  <string id="Recalculate">Recalculate</string>
+  <string id="Location">Location</string>
+  <string id="Details">Details</string>
+  <string id="WarningLow">
+    Polaris is very low; alignment may be unreliable
+  </string>
+  <string id="NotVisible">Polaris is not visible from this location</string>
+  <string id="Actions">Actions</string>
+  <string id="UtcTime">Calculation UTC</string>
+  <string id="SeaPressure">Sea-level pressure</string>
+  <string id="ObserverPressure">Observer pressure</string>
+  <string id="DataSource">Pressure source</string>
+  <string id="Geoid">Geoid model</string>
+  <string id="GeoidProvenance">
+    EGM96 15° global grid; bilinear interpolation
+  </string>
+  <string id="EarthData">Earth data</string>
+  <string id="EarthDataProvenance">
+    IERS Bulletin A predictions; MJD 61292–61659; 2026-09-09–2027-09-11
+  </string>
+  <string id="Catalog">Polaris catalog</string>
+  <string id="FullResult">Full result</string>
+  <string id="Estimated">Estimated</string>
+  <string id="Barometer">Barometer</string>
+  <string id="HelpLocation">
+    Use GPS or edit latitude, longitude and MSL elevation, then confirm.
+  </string>
+  <string id="HelpFormats">
+    Decimal uses 5 places. DMS uses whole arcseconds. Switching formats
+    preserves coordinates.
+  </string>
+  <string id="HelpGps">
+    Garmin reports Good, Usable, Poor, Last known, or Unavailable quality.
+  </string>
+  <string id="HelpAtmosphere">
+    Automatic uses the barometer; Manual uses local hPa; Off disables
+    refraction.
+  </string>
+  <string id="HelpHour">
+    Hour angle runs 00:00:00–11:59:59 and shares the zero/twelve reticle.
+  </string>
+  <string id="HelpPole">
+    Pole distance is 90° minus observed declination.
+  </string>
+  <string id="HelpEarth">
+    Earth-orientation data has a fixed validity interval; update the app after
+    expiry.
+  </string>
+  <string id="DiscardTitle">Discard changes?</string>
+  <string id="Discard">Discard</string>
+  <string id="KeepEditing">Keep editing</string>
+  <string id="Back">Back</string>
+  <string id="Quality">Quality</string>
+  <string id="Unknown">Unknown</string>
+  <string id="PressureRecent">Recent barometer</string>
+  <string id="PressureFallback">Manual fallback</string>
+  <string id="StandardAtmosphere">Standard atmosphere</string>
+  <string id="AstronomyFailed">Astronomical transformation failed</string>
+  <string id="InvalidInputs">Location inputs are no longer valid</string>
+  <string id="Am">AM</string>
+  <string id="Pm">PM</string>
+  <string id="Page">Page</string>
+  <string id="SelectDigit">Select digit</string>
+  <string id="Changing">Changing</string>
+  <string id="SavedAt">Saved time</string>
+  <string id="UnavailableData">Unavailable</string>
+  <string id="DefaultSource">Configured default</string>
+  <string id="PressureSampleTime">Pressure sample</string>
+  <string id="Age">Age</string>
+  <string id="EarthExpires">Earth data expires 2027-09-11</string>
+  <string id="EarthUnsupported">
+    Date outside Earth-data range 2026-09-09–2027-09-11; check watch date or
+    update app
+  </string>
+  <string id="GeoidModel">Geoid model</string>
+  <string id="GeoidOffset">Geoid offset</string>
+  <string id="EllipsoidHeight">Ellipsoidal height</string>
+  <string id="EarthSource">Earth-data source</string>
+  <string id="SelectedMjd">Interpolated UTC MJD</string>
+  <string id="EarthValidity">Supported interval</string>
+  <string id="EarthValidityValue">2026-09-09–2027-09-11</string>
+  <string id="EarthExpiry">Expiry date</string>
+  <string id="EarthExpiryValue">2027-09-11</string>
+  <string id="CatalogSource">Catalog source</string>
+  <string id="CatalogProvenance">Hipparcos Polaris record</string>
+  <string id="CatalogEpoch">Catalog epoch</string>
+  <string id="ProperMotion">Proper motion</string>
+  <string id="Parallax">Parallax</string>
+  <string id="RadialVelocity">Radial velocity</string>
+  <string id="HourAnglePrecise">Hour angle (degrees)</string>
+  <string id="PoleDistancePrecise">Pole distance (arcsec)</string>
+  <string id="SelectAction">START: select</string>
 </strings>

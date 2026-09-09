@@ -1,17 +1,25 @@
-<?xml version="1.0"?>
+<?xml version="1.0" ?>
 <iq:manifest version="3" xmlns:iq="http://www.garmin.com/xml/connectiq">
-    <iq:application id="C3B3484B-85F9-48F3-9C6D-E3BCFB957777" type="watch-app" name="@Strings.AppName" entry="PolarFinderApp" launcherIcon="@Drawables.LauncherIcon" minApiLevel="5.2.0">
-        <iq:products>
-            <iq:product id="fr965" />
-        </iq:products>
-        <iq:permissions>
-            <iq:uses-permission id="Positioning" />
-        </iq:permissions>
-        <iq:languages>
-            <iq:language>eng</iq:language>
-            <iq:language>zhs</iq:language>
-            <iq:language>zht</iq:language>
-        </iq:languages>
-        <iq:barrels />
-    </iq:application>
+  <iq:application
+    id="C3B3484B-85F9-48F3-9C6D-E3BCFB957777"
+    type="watch-app"
+    name="@Strings.AppName"
+    entry="PolarFinderApp"
+    launcherIcon="@Drawables.LauncherIcon"
+    minApiLevel="5.2.0"
+  >
+    <iq:products>
+      <iq:product id="fr965" />
+    </iq:products>
+    <iq:permissions>
+      <iq:uses-permission id="Positioning" />
+      <iq:uses-permission id="Sensor" />
+    </iq:permissions>
+    <iq:languages>
+      <iq:language>eng</iq:language>
+      <iq:language>zhs</iq:language>
+      <iq:language>zht</iq:language>
+    </iq:languages>
+    <iq:barrels />
+  </iq:application>
 </iq:manifest>

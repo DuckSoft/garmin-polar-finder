@@ -1,0 +1,31 @@
+SOFA DERIVED-WORK NOTICE
+
+This application contains algorithms and constants derived from the
+International Astronomical Union Standards of Fundamental Astronomy (SOFA)
+software collection, release 2016-05-03 (www.iausofa.org). The Monkey C code
+is a derived work, is not software provided by or endorsed by SOFA, and its
+routine names omit the iau/sofa prefix as required by the SOFA license.
+
+SOFA SOFTWARE LICENSE
+
+The Software is owned by the IAU SOFA Board. Permission is granted to anyone
+to use the SOFA software for any purpose, including commercial applications,
+free of charge and without payment of royalties, subject to these conditions:
+
+1. Derived works must carry a statement that they use routines and
+computations derived from software provided by SOFA and that they do not
+constitute software provided by and/or endorsed by SOFA.
+2. The source of a derived work must describe how it is based upon, contains,
+and/or differs from the original software.
+3. Names of routines in derived works must not include the prefix iau or sofa,
+or trivial modifications thereof such as changes of case.
+4. The origin of SOFA components must not be misrepresented, and no patent
+application may be filed for SOFA software or algorithms embedded in it.
+5. These requirements must be reproduced intact in any source distribution
+and apply to anyone granted a further right to modify the derived work.
+6. Users accept that SOFA is provided as-is, without warranty of any kind.
+SOFA is not liable for consequential, incidental, or other damages. Use of
+SOFA software must not bring SOFA into disrepute.
+
+Acknowledgement of SOFA (www.iausofa.org) is appreciated in published work or
+commercial products using it. Correspondence: sofa@ukho.gov.uk.

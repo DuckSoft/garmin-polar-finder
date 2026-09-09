@@ -1,4 +1,155 @@
-<strings xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
-    <string id="AppName">极轴镜助手</string>
-    <string id="Ready">就绪</string>
+<strings
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd"
+>
+  <string id="AppName">极轴镜助手</string>
+  <string id="Locate">定位</string>
+  <string id="Latitude">纬度</string>
+  <string id="Longitude">经度</string>
+  <string id="Elevation">海拔（MSL）</string>
+  <string id="NoLocation">未设置</string>
+  <string id="Gps">获取 GPS</string>
+  <string id="Source">来源</string>
+  <string id="Saved">已保存</string>
+  <string id="Manual">手动</string>
+  <string id="GpsAdjusted">GPS，已调整</string>
+  <string id="Format">坐标格式</string>
+  <string id="Decimal">十进制度</string>
+  <string id="Dms">度分秒</string>
+  <string id="Atmosphere">大气设置</string>
+  <string id="Calculate">计算</string>
+  <string id="Help">帮助</string>
+  <string id="FirstUse">请设置 GPS 或坐标。</string>
+  <string id="ConfirmLocation">确认位置</string>
+  <string id="SavedHint">计算前请确认此保存位置。</string>
+  <string id="Ready">就绪</string>
+  <string id="GpsTitle">获取 GPS</string>
+  <string id="Searching">正在搜索 GPS</string>
+  <string id="Unavailable">位置不可用</string>
+  <string id="Permission">需要位置权限</string>
+  <string id="NoFix">尚未定位，继续搜索</string>
+  <string id="Elapsed">已用时间</string>
+  <string id="UseLocation">使用位置</string>
+  <string id="EnterManual">手动输入</string>
+  <string id="GoodGps">GPS 良好</string>
+  <string id="UsableGps">GPS 可用</string>
+  <string id="PoorGps">GPS 较差</string>
+  <string id="LastKnown">上次位置</string>
+  <string id="Acknowledge">使用低质量定位？</string>
+  <string id="YesUse">仍然使用</string>
+  <string id="Cancel">取消</string>
+  <string id="EditLatitude">编辑纬度</string>
+  <string id="EditLongitude">编辑经度</string>
+  <string id="EditElevation">编辑海拔</string>
+  <string id="Hemisphere">半球</string>
+  <string id="Sign">符号</string>
+  <string id="Degrees">度</string>
+  <string id="Fraction">小数</string>
+  <string id="Minutes">分</string>
+  <string id="Seconds">秒</string>
+  <string id="Done">完成</string>
+  <string id="InvalidCoordinate">坐标无效</string>
+  <string id="Meters">米</string>
+  <string id="Pressure">气压</string>
+  <string id="Automatic">自动</string>
+  <string id="PressureManual">手动本地 hPa</string>
+  <string id="RefractionOff">关闭折射</string>
+  <string id="Temperature">温度</string>
+  <string id="Humidity">相对湿度</string>
+  <string id="Wavelength">波长</string>
+  <string id="VisiblePolaris">北极星可见光 0.55 um</string>
+  <string id="Alert">计算提醒</string>
+  <string id="On">开</string>
+  <string id="Off">关</string>
+  <string id="Calculating">正在计算</string>
+  <string id="ReadingPressure">读取气压</string>
+  <string id="LoadingEarth">加载地球数据</string>
+  <string id="ConvertingTime">转换时间</string>
+  <string id="CalculatingPolaris">计算北极星</string>
+  <string id="ObserverCorrections">应用观测者修正</string>
+  <string id="PreparingDisplay">准备显示</string>
+  <string id="Restarting">重新开始计算</string>
+  <string id="CancelHint">返回：取消</string>
+  <string id="CalculationError">计算错误</string>
+  <string id="TryAgain">重试</string>
+  <string id="BackLocation">返回位置</string>
+  <string id="HourAngle">时角</string>
+  <string id="PoleDistance">极距</string>
+  <string id="Recalculate">重新计算</string>
+  <string id="Location">位置</string>
+  <string id="Details">详情</string>
+  <string id="WarningLow">北极星高度很低，校准可能不可靠</string>
+  <string id="NotVisible">此位置看不到北极星</string>
+  <string id="Actions">操作</string>
+  <string id="UtcTime">计算 UTC</string>
+  <string id="SeaPressure">海平面气压</string>
+  <string id="ObserverPressure">观测点气压</string>
+  <string id="DataSource">气压来源</string>
+  <string id="Geoid">大地水准面模型</string>
+  <string id="GeoidProvenance">EGM96 15° 全球网格；双线性插值</string>
+  <string id="EarthData">地球数据</string>
+  <string id="EarthDataProvenance">
+    IERS Bulletin A 预测；MJD 61292–61659；2026-09-09–2027-09-11
+  </string>
+  <string id="Catalog">北极星星表</string>
+  <string id="FullResult">完整结果</string>
+  <string id="Estimated">估算</string>
+  <string id="Barometer">气压计</string>
+  <string id="HelpLocation">
+    使用 GPS 或编辑纬度、经度和 MSL 海拔，然后确认。
+  </string>
+  <string id="HelpFormats">
+    十进制度保留 5 位小数；度分秒精确到整秒。切换格式不改变坐标。
+  </string>
+  <string id="HelpGps">
+    Garmin 质量类别：良好、可用、较差、上次位置、不可用。
+  </string>
+  <string id="HelpAtmosphere">
+    自动使用气压计；手动输入本地 hPa；关闭则不计算折射。
+  </string>
+  <string id="HelpHour">
+    时角范围 00:00:00–11:59:59，零点与十二点共用刻度。
+  </string>
+  <string id="HelpPole">极距为 90° 减观测赤纬。</string>
+  <string id="HelpEarth">地球定向数据有固定有效期；到期后请更新应用。</string>
+  <string id="DiscardTitle">放弃更改？</string>
+  <string id="Discard">放弃</string>
+  <string id="KeepEditing">继续编辑</string>
+  <string id="Back">返回</string>
+  <string id="Quality">质量</string>
+  <string id="Unknown">未知</string>
+  <string id="PressureRecent">近期气压计</string>
+  <string id="StandardAtmosphere">标准大气估算</string>
+  <string id="AstronomyFailed">天文转换失败</string>
+  <string id="InvalidInputs">位置输入已失效</string>
+  <string id="Am">上午</string>
+  <string id="Pm">下午</string>
+  <string id="Page">页</string>
+  <string id="SelectDigit">选择数位</string>
+  <string id="Changing">正在更改</string>
+  <string id="SavedAt">保存时间</string>
+  <string id="UnavailableData">不可用</string>
+  <string id="DefaultSource">配置默认值</string>
+  <string id="EarthExpires">地球数据于 2027-09-11 到期</string>
+  <string id="EarthUnsupported">
+    日期超出地球数据范围 2026-09-09–2027-09-11；请检查手表日期或更新应用
+  </string>
+  <string id="GeoidModel">大地水准面模型</string>
+  <string id="GeoidOffset">大地水准面偏差</string>
+  <string id="EllipsoidHeight">椭球高</string>
+  <string id="EarthSource">地球数据来源</string>
+  <string id="SelectedMjd">插值 UTC MJD</string>
+  <string id="EarthValidity">支持区间</string>
+  <string id="EarthValidityValue">2026-09-09–2027-09-11</string>
+  <string id="EarthExpiry">到期日期</string>
+  <string id="EarthExpiryValue">2027-09-11</string>
+  <string id="CatalogSource">星表来源</string>
+  <string id="CatalogProvenance">依巴谷星表北极星记录</string>
+  <string id="CatalogEpoch">星表历元</string>
+  <string id="ProperMotion">自行</string>
+  <string id="Parallax">视差</string>
+  <string id="RadialVelocity">径向速度</string>
+  <string id="HourAnglePrecise">时角（度）</string>
+  <string id="PoleDistancePrecise">极距（角秒）</string>
+  <string id="SelectAction">START：选择</string>
 </strings>

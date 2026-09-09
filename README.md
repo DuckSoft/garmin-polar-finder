@@ -1,8 +1,8 @@
 # Polar Finder
 
-A Garmin Connect IQ watch app for polar alignment on the Forerunner 965.
-
-The current skeleton displays a localized readiness screen. It declares Garmin's `Positioning` permission because GPS coordinates will drive local celestial-time calculations, but it does not access location data yet.
+A Garmin Connect IQ watch app for polar alignment on the Forerunner 965. It
+acquires or edits an observing location, reviews atmospheric inputs, calculates
+observer-corrected Polaris alignment values, and presents a live dark-site display.
 
 ## Requirements
 
@@ -16,15 +16,29 @@ The Makefile reads the active SDK from `~/Library/Application Support/Garmin/Con
 ## Commands
 
 ```sh
-make build
+make lint    # check two-space formatting for every project XML file
+make build   # compile and sign for fr965
 make simulator
-make run
+make run     # launch in the running simulator
+make test    # compile and run SOFA vector tests in the simulator
 make clean
 ```
 
-`make simulator` starts Garmin's simulator. Run it before `make run`, which builds, signs, installs, and launches the app for `fr965`.
-
+`make simulator` starts Garmin's simulator. Run it before `make run` or
+`make test`. The Makefile reads the active SDK path and uses `fr965` by default.
+`make lint` needs no install step; `npx` runs the exactly pinned Prettier and XML plugin versions.
 The launcher PNG is regenerated from `artwork/launcher-icon.svg` automatically when the SVG changes.
+
+## Bundled Earth data
+
+The astrometry calculation uses bundled, read-only reference data:
+
+- **Geoid:** NGA EGM96 (`us_nga_egm96_15.tif`) reduced to a global 15° lattice
+  and bilinearly interpolated for MSL-to-ellipsoid height conversion.
+- **Earth orientation:** IERS Bulletin A `finals2000A` prediction rows, MJD
+  **61292–61659** (**2026-09-09–2027-09-11**), with DUT1 and polar motion
+  (`xp`, `yp`) interpolated at the fractional UTC MJD. Dates outside this
+  interval are rejected; the final 30 days are marked as nearing expiry.
 
 ## Languages
 
