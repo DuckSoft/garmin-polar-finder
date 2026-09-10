@@ -14,6 +14,7 @@ graphics retain live Polaris placement, clock/offset readouts, and warnings.
 - A signing key at `~/Library/Application Support/Garmin/ConnectIQ/developer_key.der`
 - GNU Make
 - ImageMagick (`magick`) when regenerating the launcher icon
+- [uv](https://docs.astral.sh/uv/) when checking, regenerating, or updating IERS data
 
 The Makefile reads the active SDK from `~/Library/Application Support/Garmin/ConnectIQ/current-sdk.cfg`. Override `DEVELOPER_KEY` or `DEVICE` on the command line when needed.
 
@@ -21,6 +22,9 @@ The Makefile reads the active SDK from `~/Library/Application Support/Garmin/Con
 
 ```sh
 make lint                       # check project XML formatting
+make check-generated            # verify checked-in IERS output without refreshing data
+make generate-iers              # regenerate IERS source from the checked-in snapshot
+make update-iers                # explicitly download and replace the IERS snapshot
 make build                      # compile DEVICE (fr965 by default)
 make DEVICE=fr255s build        # compile one selected profile
 make build-all                  # compile collision-free PRGs for all five devices
@@ -50,6 +54,12 @@ The astrometry calculation uses bundled, read-only reference data:
   **61292–61659** (**2026-09-09–2027-09-11**), with DUT1 and polar motion
   (`xp`, `yp`) interpolated at the fractional UTC MJD. Dates outside this
   interval are rejected; the final 30 days are marked as nearing expiry.
+
+`source/GeoidData.mc` is handwritten; `source/IersEopData.mc` is generated from
+the single checked-in `data/iers/finals2000A-YYYY-MM-DD.txt` snapshot. Ordinary
+builds and CI do not refresh IERS data. See
+[Earth-data generation and CI](docs/earth-data-generation-and-ci.md) for ownership,
+reproducible generation, the explicit update procedure, and CI signing security.
 
 ## Languages
 

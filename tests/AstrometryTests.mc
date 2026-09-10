@@ -20,11 +20,11 @@ function unixTimestampRetainsSubdayPrecision(logger as Test.Logger) {
 function beijingPressureOffVectorMatchesPyerfa(logger as Test.Logger) {
     var unixSeconds = 1788967221;
     var jd = Astrometry.unixSecondsToJulianDate(unixSeconds);
-    var eop = EarthData.eop(jd - 2400000.5d);
+    var eop = IersEopData.eop(jd - 2400000.5d);
     var pi = Math.PI.toDouble();
     var rc = (2.0d + 31.0d / 60.0d + 49.09d / 3600.0d) * 15.0d * pi / 180.0d;
     var dc = (89.0d + 15.0d / 60.0d + 50.8d / 3600.0d) * pi / 180.0d;
-    var height = EarthData.mslToEllipsoid(40.06890d, 116.30780d, 125.0d);
+    var height = GeoidData.mslToEllipsoid(40.06890d, 116.30780d, 125.0d);
     var state = Astrometry.begin(
         rc, dc, 44.22e-3d * pi / (180.0d * 3600.0d),
         -11.74e-3d * pi / (180.0d * 3600.0d), 7.54e-3d, -16.0d,
@@ -106,11 +106,11 @@ function astrometryRejectsOutOfRangeUtc(logger as Test.Logger) {
 }
 
 (:test)
-function earthDataInterpolatesAndRejects(logger as Test.Logger) {
-    var a = EarthData.eop(61292.0);
-    var b = EarthData.eop(61293.0);
-    var m = EarthData.eop(61292.5);
-    var finalDay = EarthData.eop(61659.0);
+function iersEopInterpolatesAndChecksBoundsAndWarnings(logger as Test.Logger) {
+    var a = IersEopData.eop(61292.0);
+    var b = IersEopData.eop(61293.0);
+    var m = IersEopData.eop(61292.5);
+    var finalDay = IersEopData.eop(61659.0);
     var ok = a[:status] == 0 && b[:status] == 0 && m[:status] == 0;
     ok = ok && m[:dut1] > b[:dut1] && m[:dut1] < a[:dut1];
     var loXp = a[:xp] < b[:xp] ? a[:xp] : b[:xp];
@@ -119,13 +119,18 @@ function earthDataInterpolatesAndRejects(logger as Test.Logger) {
     ok = ok && a[:first] == 61292.0 && a[:last] == 61659.0;
     ok = ok && finalDay[:status] == 0
         && withinTolerance(finalDay[:dut1], -0.1044597d, 1.0e-8d);
-    ok = ok && !EarthData.eop(61628.999999d)[:warning]
-        && EarthData.eop(61629.0d)[:warning];
-    ok = ok && EarthData.eop(61291.999999d)[:status] < 0
-        && EarthData.eop(61659.000001d)[:status] < 0;
-    var geo = EarthData.geoidOffset(0.0, 0.0);
-    ok = ok && geo > 17.15 && geo < 17.18;
-    var ellipsoid = EarthData.mslToEllipsoid(0.0, 0.0, 100.0);
+    ok = ok && !IersEopData.eop(61628.999999d)[:warning]
+        && IersEopData.eop(61629.0d)[:warning];
+    ok = ok && IersEopData.eop(61291.999999d)[:status] < 0
+        && IersEopData.eop(61659.000001d)[:status] < 0;
+    return ok;
+}
+
+(:test)
+function geoidOffsetConvertsMslToEllipsoid(logger as Test.Logger) {
+    var geo = GeoidData.geoidOffset(0.0, 0.0);
+    var ok = geo > 17.15 && geo < 17.18;
+    var ellipsoid = GeoidData.mslToEllipsoid(0.0, 0.0, 100.0);
     ok = ok && ellipsoid > 117.15 && ellipsoid < 117.18;
     return ok;
 }

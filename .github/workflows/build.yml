@@ -1,0 +1,76 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate generated data and formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.12'
+      - name: Check generated IERS data
+        run: make check-generated
+      - name: Check formatting
+        run: make lint
+
+  build:
+    name: Build ${{ matrix.device }}
+    needs: validate
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [fr255, fr255s, fr255m, fr255sm, fr965]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          persist-credentials: false
+      - name: Prepare signing key and output directory
+        shell: bash
+        env:
+          CIQ_DEVELOPER_KEY: ${{ secrets.CIQ_DEVELOPER_KEY }}
+        run: |
+          umask 077
+          key_file=$(mktemp --tmpdir="$GITHUB_WORKSPACE" --suffix=.der .ci-developer-key.XXXXXX)
+          printf 'CIQ_KEY_PATH=%s\n' "${key_file#"$GITHUB_WORKSPACE/"}" >> "$GITHUB_ENV"
+          chmod 600 "$key_file"
+          printf '%s' "$CIQ_DEVELOPER_KEY" | base64 --decode > "$key_file"
+          test -s "$key_file"
+          mkdir -p bin
+      - name: Compile PRG
+        uses: blackshadev/garmin-connectiq-build-action@8868fb0edf4ced6686f7468f0574e3cd9d8337b3 # v9.2.0
+        with:
+          developerKey: ${{ env.CIQ_KEY_PATH }}
+          projectJungle: monkey.jungle
+          typeCheck: '0'
+          device: ${{ matrix.device }}
+          outputPath: bin/PolarFinder-${{ matrix.device }}.prg
+      - name: Remove signing key
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${CIQ_KEY_PATH:-}" ]]; then
+            rm -f -- "$GITHUB_WORKSPACE/$CIQ_KEY_PATH"
+          fi
+      - name: Upload PRG
+        uses: actions/upload-artifact@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          name: PolarFinder-${{ matrix.device }}
+          path: bin/PolarFinder-${{ matrix.device }}.prg
+          if-no-files-found: error
+          retention-days: 14

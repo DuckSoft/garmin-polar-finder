@@ -3,6 +3,7 @@ MONKEYC := $(SDK_HOME)/bin/monkeyc
 MONKEYDO := $(SDK_HOME)/bin/monkeydo
 CONNECTIQ := $(SDK_HOME)/bin/connectiq
 DEVELOPER_KEY ?= $(HOME)/Library/Application Support/Garmin/ConnectIQ/developer_key.der
+UV ?= uv
 DEVICE ?= fr965
 DEVICES := fr255 fr255s fr255m fr255sm fr965
 TEST_DEVICES := fr255s fr255 fr965
@@ -15,7 +16,7 @@ TEST_JUNGLES := monkey.jungle:test.jungle
 ICON_260 := resources-round-260x260/drawables/launcher_icon.png
 ICONS := $(ICON_454) $(ICON_218) $(ICON_260)
 
-.PHONY: build build-all package simulator run lint test test-profiles clean icons $(DEVICES:%=build-%) $(TEST_DEVICES:%=test-%)
+.PHONY: build build-all package simulator run lint test test-profiles clean icons generate-iers check-generated update-iers $(DEVICES:%=build-%) $(TEST_DEVICES:%=test-%)
 
 # The SDK compiler uses shared generated state and is not safe to run concurrently.
 .NOTPARALLEL:
@@ -75,6 +76,15 @@ run: build
 
 lint:
 	npx --yes --package=prettier@3.6.2 --package=@prettier/plugin-xml@3.4.2 sh -c 'prettier --plugin="$$(dirname "$$(dirname "$$(command -v prettier)")")/@prettier/plugin-xml/src/plugin.js" --tab-width=2 --use-tabs=false --xml-whitespace-sensitivity=ignore --check "**/*.xml"'
+
+generate-iers:
+	$(UV) run --script tools/iers.py generate
+
+check-generated:
+	$(UV) run --script tools/iers.py check
+
+update-iers:
+	$(UV) run --script tools/iers.py update
 
 
 clean:
