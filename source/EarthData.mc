@@ -417,6 +417,7 @@ module EarthData {
     }
     function mslToEllipsoid(lat, lon, msl) { return msl + geoidOffset(lat, lon); }
     function eop(mjd) {
+        mjd = mjd.toDouble();
         if (mjd < 61292.0 || mjd > 61659.0) { return {:status => -1, :warning => false}; }
         var i = 0;
         while (i < EOP.size() - 2 && mjd > EOP[i + 1][0]) { i += 1; }

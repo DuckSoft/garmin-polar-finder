@@ -3,6 +3,8 @@
 A Garmin Connect IQ watch app for polar alignment on the Forerunner 965. It
 acquires or edits an observing location, reviews atmospheric inputs, calculates
 observer-corrected Polaris alignment values, and presents a live dark-site display.
+The persisted Reticle selector offers the Generic numerical result or an iOptron
+SkyGuider Pro graphic with a live Polaris placement marker.
 
 ## Requirements
 

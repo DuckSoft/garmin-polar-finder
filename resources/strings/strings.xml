@@ -16,6 +16,9 @@
   <string id="Format">Coordinate format</string>
   <string id="Decimal">Decimal</string>
   <string id="Dms">DMS</string>
+  <string id="Reticle">Reticle</string>
+  <string id="Generic">Generic</string>
+  <string id="Ioptron">iOptron</string>
   <string id="Atmosphere">Atmosphere</string>
   <string id="Calculate">Calculate</string>
   <string id="Help">Help</string>
@@ -57,9 +60,13 @@
   <string id="PressureManual">Manual local hPa</string>
   <string id="RefractionOff">Refraction off</string>
   <string id="Temperature">Temperature</string>
+  <string id="TemperatureSource">Temperature source</string>
   <string id="Humidity">Relative humidity</string>
+  <string id="HumiditySource">Humidity source</string>
   <string id="Wavelength">Wavelength</string>
-  <string id="VisiblePolaris">Polaris visible 0.55 um</string>
+  <string id="WavelengthSource">Wavelength source</string>
+  <string id="VisiblePolaris">Polaris visible</string>
+  <string id="DefaultSource">Configured default</string>
   <string id="Alert">Calculation alert</string>
   <string id="On">On</string>
   <string id="Off">Off</string>
@@ -94,9 +101,7 @@
     EGM96 15° global grid; bilinear interpolation
   </string>
   <string id="EarthData">Earth data</string>
-  <string id="EarthDataProvenance">
-    IERS Bulletin A predictions; MJD 61292–61659; 2026-09-09–2027-09-11
-  </string>
+  <string id="EarthDataProvenance">IERS Bulletin A predictions</string>
   <string id="Catalog">Polaris catalog</string>
   <string id="FullResult">Full result</string>
   <string id="Estimated">Estimated</string>
@@ -125,6 +130,10 @@
     Earth-orientation data has a fixed validity interval; update the app after
     expiry.
   </string>
+  <string id="HelpReticle">
+    Choose Generic for numerical results or iOptron for graphic alignment.
+    Place Polaris on the green marker.
+  </string>
   <string id="DiscardTitle">Discard changes?</string>
   <string id="Discard">Discard</string>
   <string id="KeepEditing">Keep editing</string>
@@ -136,6 +145,12 @@
   <string id="StandardAtmosphere">Standard atmosphere</string>
   <string id="AstronomyFailed">Astronomical transformation failed</string>
   <string id="InvalidInputs">Location inputs are no longer valid</string>
+  <string id="ReticleRangeError">
+    Polaris is outside the iOptron reticle range
+  </string>
+  <string id="ReticleWarningLow">Low Polaris</string>
+  <string id="ReticleWarningEarth">Data expires</string>
+  <string id="ActiveWarning">Warning</string>
   <string id="Am">AM</string>
   <string id="Pm">PM</string>
   <string id="Page">Page</string>
@@ -143,7 +158,6 @@
   <string id="Changing">Changing</string>
   <string id="SavedAt">Saved time</string>
   <string id="UnavailableData">Unavailable</string>
-  <string id="DefaultSource">Configured default</string>
   <string id="PressureSampleTime">Pressure sample</string>
   <string id="Age">Age</string>
   <string id="EarthExpires">Earth data expires 2027-09-11</string>

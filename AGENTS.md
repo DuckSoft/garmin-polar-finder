@@ -24,8 +24,11 @@ This repository contains a Garmin Connect IQ watch app targeting only the Foreru
 
 ## Verification
 
-- `make build`: compile and sign the app.
-- `make simulator`: start Garmin's simulator.
+Do not set `JAVA_TOOL_OPTIONS` when running any `make` command.
+
+- `make test`: run tests; allow at most a one-minute timeout.
+- `make build`: compile and sign the app; allow at most a one-minute timeout.
+- `make simulator`: start Garmin's simulator; allow at most a one-minute timeout.
 - `make run`: build and launch in an already-running simulator.
 - `make clean`: remove generated compiler output.
 

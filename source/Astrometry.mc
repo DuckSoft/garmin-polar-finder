@@ -2221,8 +2221,12 @@ module Astrometry {
     var s06_s4 = [
         0, 0, 0, 0, 1, 0, 0, 0, -0.26e-6, -0.01e-6
     ];
+    // SOFA 2016-05-03 table with the official 2017-01 TAI-UTC update appended.
     var LEAPS = [[1972,1,10],[1972,7,11],[1973,1,12],[1974,1,13],[1975,1,14],[1976,1,15],[1977,1,16],[1978,1,17],[1979,1,18],[1980,1,19],[1981,7,20],[1982,7,21],[1983,7,22],[1985,7,23],[1988,1,24],[1990,1,25],[1991,1,26],[1992,7,27],[1993,7,28],[1994,7,29],[1996,1,30],[1997,7,31],[1999,1,32],[2006,1,33],[2009,1,34],[2012,7,35],[2015,7,36],[2017,1,37]];
 
+    function unixSecondsToJulianDate(seconds) {
+        return 2440587.5d + seconds.toDouble() / 86400.0d;
+    }
     function mod(a,b) { return a-Math.floor(a/b)*b; }
     function anp(a) { var w=mod(a,D2PI); return w<0.0?w+D2PI:w; }
     function clamp(a,lo,hi) { return a<lo?lo:(a>hi?hi:a); }
@@ -2234,7 +2238,7 @@ module Astrometry {
     function rx(a,r) { var s=Math.sin(a),c=Math.cos(a);var j=0;for(j=0;j<3;j+=1){var y=r[1][j],z=r[2][j];r[1][j]=c*y+s*z;r[2][j]=-s*y+c*z;}return r; }
     function ry(a,r) { var s=Math.sin(a),c=Math.cos(a);var j=0;for(j=0;j<3;j+=1){var x=r[0][j],z=r[2][j];r[0][j]=c*x-s*z;r[2][j]=s*x+c*z;}return r; }
     function rz(a,r) { var s=Math.sin(a),c=Math.cos(a);var j=0;for(j=0;j<3;j+=1){var x=r[0][j],y=r[1][j];r[0][j]=c*x+s*y;r[1][j]=-s*x+c*y;}return r; }
-    function ident() { return [[1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]]; }
+    function ident() { return [[1.0d,0.0d,0.0d],[0.0d,1.0d,0.0d],[0.0d,0.0d,1.0d]]; }
     function rxp(r,p) { return [r[0][0]*p[0]+r[0][1]*p[1]+r[0][2]*p[2],r[1][0]*p[0]+r[1][1]*p[1]+r[1][2]*p[2],r[2][0]*p[0]+r[2][1]*p[1]+r[2][2]*p[2]]; }
     function trxpv(r,pv) { return [[r[0][0]*pv[0][0]+r[1][0]*pv[0][1]+r[2][0]*pv[0][2],r[0][1]*pv[0][0]+r[1][1]*pv[0][1]+r[2][1]*pv[0][2],r[0][2]*pv[0][0]+r[1][2]*pv[0][1]+r[2][2]*pv[0][2]],[r[0][0]*pv[1][0]+r[1][0]*pv[1][1]+r[2][0]*pv[1][2],r[0][1]*pv[1][0]+r[1][1]*pv[1][1]+r[2][1]*pv[1][2],r[0][2]*pv[1][0]+r[1][2]*pv[1][1]+r[2][2]*pv[1][2]]]; }
     function era00(dj1,dj2) { var d1,d2;if(dj1<dj2){d1=dj1;d2=dj2;}else{d1=dj2;d2=dj1;}var t=d1+(d2-DJ00),f=mod(d1,1.0)+mod(d2,1.0);return anp(D2PI*(f+0.7790572732640+0.00273781191135448*t)); }
@@ -2251,17 +2255,17 @@ module Astrometry {
     function ldsun(p,e,em) { var qpe=[p[0]+e[0],p[1]+e[1],p[2]+e[2]],qd=dp(p,qpe),qv=em*em;var lim=1e-6/(qv>1.0?qv:1.0),w=SRS/em/(qd>lim?qd:lim),eq=[e[1]*p[2]-e[2]*p[1],e[2]*p[0]-e[0]*p[2],e[0]*p[1]-e[1]*p[0]],peq=[p[1]*eq[2]-p[2]*eq[1],p[2]*eq[0]-p[0]*eq[2],p[0]*eq[1]-p[1]*eq[0]];return [p[0]+w*peq[0],p[1]+w*peq[1],p[2]+w*peq[2]]; }
     function aberration(p,v,s,bm1) { var pdv=dp(p,v),w1=1.0+pdv/(1.0+bm1),w2=SRS/s,r=[0.0,0.0,0.0];var i=0;for(i=0;i<3;i+=1){r[i]=p[i]*bm1+w1*v[i]+w2*(v[i]-pdv*p[i]);}var q=pm(r);return [r[0]/q,r[1]/q,r[2]/q]; }
     function pmpx(rc,dc,pr,pd,px,rv,pmt,pob) { var sr=Math.sin(rc),cr=Math.cos(rc),sd=Math.sin(dc),cd=Math.cos(dc),x=cr*cd,y=sr*cd,z=sd,p=[x,y,z],dt=pmt+dp(p,pob)*(AULT/DAYSEC/DJY),pxr=px*DAS2R,w=(DAYSEC*DJY/DAU)*rv*pxr,pdz=pd*z,pmv=[-pr*y-pdz*cr+w*x,pr*x-pdz*sr+w*y,pd*cd+w*z];var i=0;for(i=0;i<3;i+=1){p[i]+=dt*pmv[i]-pxr*pob[i];}var n=pn(p);return [n[1],n[2],n[3]]; }
-    function refco(phpa,tc,rh,wl) { var t=clamp(tc,-120.0,200.0),p=clamp(phpa,0.0,10000.0),r=clamp(rh,0.0,1.0),w=clamp(wl,0.1,1e6),ps=0.0,pw=0.0;if(p>0.0){ps=Math.pow(10.0,(0.7859+0.03477*t)/(1.0+0.00412*t))*(1.0+p*(4.5e-6+6e-10*t*t));pw=r*ps/(1.0-(1.0-r)*ps/p);}var tk=t+273.15,wlsq=w*w,gamma=((77.53484e-6+(4.39108e-7+3.666e-9/wlsq)/wlsq)*p-11.2684e-6*pw)/tk,beta=4.4474e-6*tk;return [gamma*(1.0-beta),-gamma*(beta-gamma/2.0)]; }
+    function refco(phpa,tc,rh,wl) { var t=clamp(tc,-150.0,200.0),p=clamp(phpa,0.0,10000.0),r=clamp(rh,0.0,1.0),w=clamp(wl,0.1,1e6),ps=0.0,pw=0.0;if(p>0.0){ps=Math.pow(10.0,(0.7859+0.03477*t)/(1.0+0.00412*t))*(1.0+p*(4.5e-6+6e-10*t*t));pw=r*ps/(1.0-(1.0-r)*ps/p);}var tk=t+273.15,wlsq=w*w,gamma=((77.53484e-6+(4.39108e-7+3.666e-9/wlsq)/wlsq)*p-11.2684e-6*pw)/tk,beta=4.4474e-6*tk;return [gamma*(1.0-beta),-gamma*(beta-gamma/2.0)]; }
     function obl06(d1,d2){var t=((d1-DJ00)+d2)/DJC;var a=84381.406+t*(-46.836769+t*(-0.0001831+t*(0.00200340+t*(-0.000000576+t*(-0.0000000434)))));return a*DAS2R;}
     function pfw06(d1,d2){var t=((d1-DJ00)+d2)/DJC;var g=-0.052928+t*(10.556378+t*(0.4932044+t*(-0.00031238+t*(-0.000002788+t*0.0000000260))));var p=84381.412819+t*(-46.811016+t*(0.0511268+t*(0.00053289+t*(-0.000000440+t*(-0.0000000176)))));var ps=-0.041775+t*(5038.481484+t*(1.5584175+t*(-0.00018522+t*(-0.000026452+t*(-0.0000000148)))));return [g*DAS2R,p*DAS2R,ps*DAS2R,obl06(d1,d2)];}
     function fw2m(gamb,phib,psi,eps){var r=ident();rz(gamb,r);rx(phib,r);rz(-psi,r);rx(-eps,r);return r;}
 
-    function epv00(d1,d2){var t=((d1-DJ00)+d2)/DJY,t2=t*t,es=[[e0x,e0y,e0z],[e1x,e1y,e1z],[e2x,e2y,e2z]],ss=[[s0x,s0y,s0z],[s1x,s1y,s1z],[s2x,s2y,s2z]],ph=[0,0,0],vh=[0,0,0],pb=[0,0,0],vb=[0,0,0];var i=0;for(i=0;i<3;i+=1){var xyz=0.0,xyzd=0.0;var k=0;for(k=0;k<3;k+=1){var ca=es[k][i],n=ca.size()/3;var j=0;for(j=0;j<n;j+=1){var ix=3*j,a=ca[ix],b=ca[ix+1],c=ca[ix+2],ct=c*t,p=b+ct,cp=Math.cos(p);if(k==0){xyz+=a*cp;xyzd-=a*c*Math.sin(p);}else if(k==1){xyz+=a*t*cp;xyzd+=a*(cp-ct*Math.sin(p));}else{xyz+=a*t2*cp;xyzd+=a*t*(2.0*cp-ct*Math.sin(p));}}}ph[i]=xyz;vh[i]=xyzd/DJY;var k2=0;for(k2=0;k2<3;k2+=1){var ca2=ss[k2][i],n2=ca2.size()/3;var j2=0;for(j2=0;j2<n2;j2+=1){var ix2=3*j2,a2=ca2[ix2],b2=ca2[ix2+1],c2=ca2[ix2+2],ct2=c2*t,p2=b2+ct2,cp2=Math.cos(p2);if(k2==0){xyz+=a2*cp2;xyzd-=a2*c2*Math.sin(p2);}else if(k2==1){xyz+=a2*t*cp2;xyzd+=a2*(cp2-ct2*Math.sin(p2));}else{xyz+=a2*t2*cp2;xyzd+=a2*t*(2.0*cp2-ct2*Math.sin(p2));}}}pb[i]=xyz;vb[i]=xyzd/DJY;}var a12=0.000000211284,a13=-0.000000091603,a21=-0.000000230286,a22=0.917482137087,a23=-0.397776982902,a32=0.397776982902,a33=0.917482137087;return [0,[[ph[0]+a12*ph[1]+a13*ph[2],a21*ph[0]+a22*ph[1]+a23*ph[2],a32*ph[1]+a33*ph[2]],[vh[0]+a12*vh[1]+a13*vh[2],a21*vh[0]+a22*vh[1]+a23*vh[2],a32*vh[1]+a33*vh[2]]],[[pb[0]+a12*pb[1]+a13*pb[2],a21*pb[0]+a22*pb[1]+a23*pb[2],a32*pb[1]+a33*pb[2]],[vb[0]+a12*vb[1]+a13*vb[2],a21*vb[0]+a22*vb[1]+a23*vb[2],a32*vb[1]+a33*vb[2]]]];}
+    function epv00(d1,d2){var t=((d1-DJ00)+d2)/DJY,t2=t*t,es=[[e0x,e0y,e0z],[e1x,e1y,e1z],[e2x,e2y,e2z]],ss=[[s0x,s0y,s0z],[s1x,s1y,s1z],[s2x,s2y,s2z]],ph=[0.0,0.0,0.0],vh=[0.0,0.0,0.0],pb=[0.0,0.0,0.0],vb=[0.0,0.0,0.0];var i=0;for(i=0;i<3;i+=1){var xyz=0.0,xyzd=0.0;var k=0;for(k=0;k<3;k+=1){var ca=es[k][i],n=ca.size()/3;var j=0;for(j=0;j<n;j+=1){var ix=3*j,a=ca[ix],b=ca[ix+1],c=ca[ix+2],ct=c*t,p=b+ct,cp=Math.cos(p);if(k==0){xyz+=a*cp;xyzd-=a*c*Math.sin(p);}else if(k==1){xyz+=a*t*cp;xyzd+=a*(cp-ct*Math.sin(p));}else{xyz+=a*t2*cp;xyzd+=a*t*(2.0*cp-ct*Math.sin(p));}}}ph[i]=xyz;vh[i]=xyzd/DJY;var k2=0;for(k2=0;k2<3;k2+=1){var ca2=ss[k2][i],n2=ca2.size()/3;var j2=0;for(j2=0;j2<n2;j2+=1){var ix2=3*j2,a2=ca2[ix2],b2=ca2[ix2+1],c2=ca2[ix2+2],ct2=c2*t,p2=b2+ct2,cp2=Math.cos(p2);if(k2==0){xyz+=a2*cp2;xyzd-=a2*c2*Math.sin(p2);}else if(k2==1){xyz+=a2*t*cp2;xyzd+=a2*(cp2-ct2*Math.sin(p2));}else{xyz+=a2*t2*cp2;xyzd+=a2*t*(2.0*cp2-ct2*Math.sin(p2));}}}pb[i]=xyz;vb[i]=xyzd/DJY;}var a12=0.000000211284,a13=-0.000000091603,a21=-0.000000230286,a22=0.917482137087,a23=-0.397776982902,a32=0.397776982902,a33=0.917482137087;return [0,[[ph[0]+a12*ph[1]+a13*ph[2],a21*ph[0]+a22*ph[1]+a23*ph[2],a32*ph[1]+a33*ph[2]],[vh[0]+a12*vh[1]+a13*vh[2],a21*vh[0]+a22*vh[1]+a23*vh[2],a32*vh[1]+a33*vh[2]]],[[pb[0]+a12*pb[1]+a13*pb[2],a21*pb[0]+a22*pb[1]+a23*pb[2],a32*pb[1]+a33*pb[2]],[vb[0]+a12*vb[1]+a13*vb[2],a21*vb[0]+a22*vb[1]+a23*vb[2],a32*vb[1]+a33*vb[2]]]];}
     function fal03(t){return mod((485868.249036+t*(1717915923.2178+t*(31.8792+t*(0.051635+t*(-0.00024470))))),TURNAS)*DAS2R;}
     function faf03(t){return mod((335779.526232+t*(1739527262.8478+t*(-12.7512+t*(-0.001037+t*(0.00000417))))),TURNAS)*DAS2R;}
     function faom03(t){return mod((450160.398036+t*(-6962890.5431+t*(7.4722+t*(0.007702+t*(-0.00005939))))),TURNAS)*DAS2R;}
-    function falp03(t){return mod((1287104.79305+t*(129596581.0481+t*(-0.5532+t*(0.000136+t*(-0.00001149))))),TURNAS)*DAS2R;}
-    function fad03(t){return mod((1072260.70369+t*(1602961601.2090+t*(-6.3706+t*(0.006593+t*(-0.00003169))))),TURNAS)*DAS2R;}
+    function falp03(t){return mod((1287104.793048+t*(129596581.0481+t*(-0.5532+t*(0.000136+t*(-0.00001149))))),TURNAS)*DAS2R;}
+    function fad03(t){return mod((1072260.703692+t*(1602961601.2090+t*(-6.3706+t*(0.006593+t*(-0.00003169))))),TURNAS)*DAS2R;}
     function fave03(t){return mod(3.176146697+1021.3285546211*t,D2PI);}
     function fae03(t){return mod(1.753470314+628.3075849991*t,D2PI);}
     function fame03(t){return mod(4.402608842+2608.7903141574*t,D2PI);}
@@ -2291,8 +2295,9 @@ module Astrometry {
                 total += ss[g][c].size() / 3;
             }
         }
-        return {:stage => 0, :progress => 0.0, :args => [rc, dc, pr, pd, px, rv,
-            utc1, utc2, dut1, elong, phi, hm, xp, yp, phpa, tc, rh, wl],
+        return {:stage => 0, :progress => 0.0, :args => [
+            rc, dc, pr, pd, px, rv, utc1, utc2, dut1,
+            elong, phi, hm, xp, yp, phpa, tc, rh, wl],
             :es => es, :ss => ss, :epvTotal => total, :epvDone => 0,
             :ei => 0, :ek => 0, :ej => 0, :epvPhase => 0,
             :ph => [0.0, 0.0, 0.0], :phd => [0.0, 0.0, 0.0],
@@ -2473,14 +2478,14 @@ module Astrometry {
             var tt = tai2tt(tai[1], tai[2]);
             var ut1 = utcut1(args[6], args[7], args[8]);
             state[:tt0] = tt[0]; state[:tt1] = tt[1]; state[:ut1] = ut1;
-            state[:epvT] = ((tt[0] - DJ00) + tt[1]) / DJY;
+            state[:epvT] = (((tt[0] - DJ00) + tt[1]) / DJY).toFloat();
             state[:epvPhase] = 0; state[:stage] = 1;
             state[:progress] = 0.05;
             return resumableReply(state, false, null);
         }
         if (state[:stage] == 1) {
             if (!resumableEpvChunk(state, 32)) { return resumableReply(state, false, null); }
-            state[:nutT] = ((state[:tt0] - DJ00) + state[:tt1]) / DJC;
+            state[:nutT] = (((state[:tt0] - DJ00) + state[:tt1]) / DJC).toFloat();
             var t = state[:nutT];
             state[:el] = fal03(t); state[:elp] = falp03(t); state[:f] = faf03(t); state[:d] = fad03(t); state[:om] = faom03(t);
             state[:al] = mod(2.35555598 + 8328.6914269554 * t, D2PI); state[:af] = mod(1.627905234 + 8433.466158131 * t, D2PI); state[:ad] = mod(5.198466741 + 7771.3771468121 * t, D2PI); state[:aom] = mod(2.18243920 - 33.757045 * t, D2PI);
@@ -2493,7 +2498,7 @@ module Astrometry {
             var pp = pfw06(state[:tt0], state[:tt1]);
             state[:rnpb] = fw2m(pp[0], pp[1], pp[2] + state[:nut][0], pp[3] + state[:nut][1]);
             state[:x] = state[:rnpb][2][0]; state[:y] = state[:rnpb][2][1];
-            var st = ((state[:tt0] - DJ00) + state[:tt1]) / DJC;
+            var st = (((state[:tt0] - DJ00) + state[:tt1]) / DJC).toFloat();
             state[:fa] = [fal03(st), falp03(st), faf03(st), fad03(st), faom03(st), fave03(st), fae03(st), fapa03(st)];
             state[:s06T] = st; state[:s06Arrays] = [s06_s0, s06_s1, s06_s2, s06_s3, s06_s4]; state[:s06Sum] = [0.0, 0.0, 0.0, 0.0, 0.0]; state[:s06Phase] = 0; state[:s06Index] = s06_s0.size() - 10; state[:s06Done] = 0; state[:s06Total] = (s06_s0.size() + s06_s1.size() + s06_s2.size() + s06_s3.size() + s06_s4.size()) / 10; state[:stage] = 3;
             return resumableReply(state, false, null);
@@ -2507,9 +2512,9 @@ module Astrometry {
             var a = args;
             var ev = state[:ev]; var ehpv = ev[1][0]; var ebpv = ev[2]; var x = state[:x]; var y = state[:y]; var ss = state[:ss];
             var theta = era00(state[:ut1][1], state[:ut1][2]); var sp = sp00(state[:tt0], state[:tt1]); var ref = refco(a[14], a[15], a[16], a[17]); var along = a[9] + sp; var sl = Math.sin(along); var cl = Math.cos(along); var pvt = pvtob(a[9], a[10], a[11], a[12], a[13], sp, theta); var pv = trxpv(c2ixys(x, y, ss), pvt);
-            var pmt = ((state[:tt0] - DJ00) + state[:tt1]) / DJY; var dpv = [0.0, 0.0, 0.0]; var dvv = [0.0, 0.0, 0.0]; var pb = [0.0, 0.0, 0.0]; var vb = [0.0, 0.0, 0.0]; var ph = [0.0, 0.0, 0.0]; var v2 = 0.0; var i = 0;
+            var pmt = ((state[:tt0] - DJ00) + state[:tt1]) / DJY; var dpv = [0.0d, 0.0d, 0.0d]; var dvv = [0.0d, 0.0d, 0.0d]; var pb = [0.0d, 0.0d, 0.0d]; var vb = [0.0d, 0.0d, 0.0d]; var ph = [0.0d, 0.0d, 0.0d]; var v2 = 0.0d; var i = 0;
             for (i = 0; i < 3; i += 1) { dpv[i] = pv[0][i] / DAU; dvv[i] = pv[1][i] / AUDMS; pb[i] = ebpv[0][i] + dpv[i]; vb[i] = ebpv[1][i] + dvv[i]; ph[i] = ehpv[i] + dpv[i]; }
-            var emn = pn(ph); var vv = [0.0, 0.0, 0.0]; var k = 0; for (k = 0; k < 3; k += 1) { vv[k] = vb[k] * CR; v2 += vv[k] * vv[k]; }
+            var emn = pn(ph); var vv = [0.0d, 0.0d, 0.0d]; var k = 0; for (k = 0; k < 3; k += 1) { vv[k] = vb[k] * CR; v2 += vv[k] * vv[k]; }
             var ast = {:pmt => pmt, :eb => pb, :eh => [emn[1], emn[2], emn[3]], :em => emn[0], :v => vv, :bm1 => Math.sqrt(1.0 - v2), :bpn => c2ixys(x, y, ss), :eral => theta + along, :xpl => a[12] * cl - a[13] * sl, :ypl => a[12] * sl + a[13] * cl, :sphi => Math.sin(a[10]), :cphi => Math.cos(a[10]), :diurab => 0.0, :refa => ref[0], :refb => ref[1]};
             var pco = pmpx(a[0], a[1], a[2], a[3], a[4], a[5], ast[:pmt], ast[:eb]); var pnat = ldsun(pco, ast[:eh], ast[:em]); var ppr = aberration(pnat, ast[:v], ast[:em], ast[:bm1]); var pi = rxp(ast[:bpn], ppr); var cs = c2s(pi); var ri = anp(cs[0]); var di = cs[1]; var hv = s2c(ri - ast[:eral], di); var xx = hv[0]; var yy = hv[1]; var zz = hv[2]; var xhd = xx + ast[:xpl] * zz; var yhd = yy - ast[:ypl] * zz; var zhd = zz - ast[:xpl] * xx + ast[:ypl] * yy; var ff0 = 1.0 - ast[:diurab] * yhd; var xhdt = ff0 * xhd; var yhdt = ff0 * (yhd + ast[:diurab]); var zhdt = ff0 * zhd; var xaet = ast[:sphi] * xhdt - ast[:cphi] * zhdt; var yaet = yhdt; var zaet = ast[:cphi] * xhdt + ast[:sphi] * zhdt; var az = (xaet != 0.0 || yaet != 0.0) ? Math.atan2(yaet, -xaet) : 0.0; var rr = Math.sqrt(xaet * xaet + yaet * yaet); if (rr <= 1e-6) { rr = 1e-6; } var zsafe = zaet > 0.05 ? zaet : 0.05; var tz = rr / zsafe; var rw = ast[:refb] * tz * tz; var delta = (ast[:refa] + rw) * tz / (1.0 + (ast[:refa] + 3.0 * rw) / (zsafe * zsafe)); var cdel = 1.0 - delta * delta / 2.0; var fobs = cdel - delta * zsafe / rr; var xaeo = xaet * fobs; var yaeo = yaet * fobs; var zaeo = cdel * zaet + delta * rr; var zd = Math.atan2(Math.sqrt(xaeo * xaeo + yaeo * yaeo), zaeo); var haVec = [ast[:sphi] * xaeo + ast[:cphi] * zaeo, yaeo, -ast[:cphi] * xaeo + ast[:sphi] * zaeo]; var hcs = c2s(haVec); var raobs = ast[:eral] + hcs[0];
             var result = {:status => 0, :aob => anp(az), :zob => zd, :hob => -hcs[0], :dob => hcs[1], :rob => anp(raobs), :eo => eors(state[:rnpb], ss), :altitude => D2PI / 4.0 - zd}; state[:stage] = -1; state[:progress] = 1.0; state[:result] = result; return resumableReply(state, true, result);

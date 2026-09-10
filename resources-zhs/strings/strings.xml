@@ -16,6 +16,9 @@
   <string id="Format">坐标格式</string>
   <string id="Decimal">十进制度</string>
   <string id="Dms">度分秒</string>
+  <string id="Reticle">极轴镜</string>
+  <string id="Generic">通用</string>
+  <string id="Ioptron">iOptron</string>
   <string id="Atmosphere">大气设置</string>
   <string id="Calculate">计算</string>
   <string id="Help">帮助</string>
@@ -55,9 +58,13 @@
   <string id="PressureManual">手动本地 hPa</string>
   <string id="RefractionOff">关闭折射</string>
   <string id="Temperature">温度</string>
+  <string id="TemperatureSource">温度来源</string>
   <string id="Humidity">相对湿度</string>
+  <string id="HumiditySource">湿度来源</string>
   <string id="Wavelength">波长</string>
-  <string id="VisiblePolaris">北极星可见光 0.55 um</string>
+  <string id="WavelengthSource">波长来源</string>
+  <string id="VisiblePolaris">北极星可见光</string>
+  <string id="DefaultSource">配置默认值</string>
   <string id="Alert">计算提醒</string>
   <string id="On">开</string>
   <string id="Off">关</string>
@@ -88,9 +95,7 @@
   <string id="Geoid">大地水准面模型</string>
   <string id="GeoidProvenance">EGM96 15° 全球网格；双线性插值</string>
   <string id="EarthData">地球数据</string>
-  <string id="EarthDataProvenance">
-    IERS Bulletin A 预测；MJD 61292–61659；2026-09-09–2027-09-11
-  </string>
+  <string id="EarthDataProvenance">IERS Bulletin A 预测</string>
   <string id="Catalog">北极星星表</string>
   <string id="FullResult">完整结果</string>
   <string id="Estimated">估算</string>
@@ -112,6 +117,9 @@
   </string>
   <string id="HelpPole">极距为 90° 减观测赤纬。</string>
   <string id="HelpEarth">地球定向数据有固定有效期；到期后请更新应用。</string>
+  <string id="HelpReticle">
+    通用模式显示数值结果；iOptron 模式显示图形校准。请将北极星置于绿色标记上。
+  </string>
   <string id="DiscardTitle">放弃更改？</string>
   <string id="Discard">放弃</string>
   <string id="KeepEditing">继续编辑</string>
@@ -122,6 +130,10 @@
   <string id="StandardAtmosphere">标准大气估算</string>
   <string id="AstronomyFailed">天文转换失败</string>
   <string id="InvalidInputs">位置输入已失效</string>
+  <string id="ReticleRangeError">北极星超出 iOptron 极轴镜范围</string>
+  <string id="ReticleWarningLow">北极星低</string>
+  <string id="ReticleWarningEarth">数据将到期</string>
+  <string id="ActiveWarning">警告</string>
   <string id="Am">上午</string>
   <string id="Pm">下午</string>
   <string id="Page">页</string>
@@ -129,7 +141,9 @@
   <string id="Changing">正在更改</string>
   <string id="SavedAt">保存时间</string>
   <string id="UnavailableData">不可用</string>
-  <string id="DefaultSource">配置默认值</string>
+  <string id="PressureFallback">手动备用值</string>
+  <string id="PressureSampleTime">气压采样时间</string>
+  <string id="Age">时长</string>
   <string id="EarthExpires">地球数据于 2027-09-11 到期</string>
   <string id="EarthUnsupported">
     日期超出地球数据范围 2026-09-09–2027-09-11；请检查手表日期或更新应用
