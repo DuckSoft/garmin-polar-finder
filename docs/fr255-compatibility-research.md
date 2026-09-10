@@ -18,12 +18,8 @@ geometry/input tests, and simulator launch/runtime checks are recorded in the
 implementation delivery; human visual signoff remains required.
 
 All compiler experiments below that required changed manifests or sources used
-temporary copies under:
-
-```text
-/var/folders/fr/k689k21x303699tlrfrz95vr0000gn/T/ciq-research-ao7510w1
-/var/folders/fr/k689k21x303699tlrfrz95vr0000gn/T/polarfinder-compat-ymdld1yo
-```
+temporary copies under `${TMPDIR:-/tmp}`. The randomized directory names were
+intentionally omitted because they were machine-specific and no longer exist.
 
 ## Local evidence
 
@@ -32,13 +28,13 @@ temporary copies under:
 The active SDK is selected by:
 
 ```text
-/Users/ducksoft/Library/Application Support/Garmin/ConnectIQ/current-sdk.cfg
+$HOME/Library/Application Support/Garmin/ConnectIQ/current-sdk.cfg
 ```
 
 Its value during the investigation was:
 
 ```text
-/Users/ducksoft/Library/Application Support/Garmin/ConnectIQ/Sdks/connectiq-sdk-mac-9.1.0-2026-03-09-6a872a80b/
+$HOME/Library/Application Support/Garmin/ConnectIQ/Sdks/<installed-sdk>/
 ```
 
 Compiler version command and result:
@@ -76,7 +72,7 @@ The supplied `Build_Configuration.html` was read directly. Its main topics are r
 Each target has an installed profile under:
 
 ```text
-/Users/ducksoft/Library/Application Support/Garmin/ConnectIQ/Devices/<device-id>/
+$HOME/Library/Application Support/Garmin/ConnectIQ/Devices/<device-id>/
 ```
 
 The following evidence files were inspected or confirmed for each device:
@@ -105,7 +101,7 @@ This proves that local simulator profiles are available. It does not prove that 
 The SDK also contains device-reference resources under:
 
 ```text
-/Users/ducksoft/Library/Application Support/Garmin/ConnectIQ/Sdks/connectiq-sdk-mac-9.1.0-2026-03-09-6a872a80b/resources/device-reference/<device-id>/
+$HOME/Library/Application Support/Garmin/ConnectIQ/Sdks/<installed-sdk>/resources/device-reference/<device-id>/
 ```
 
 ## Exact product IDs and device matrix
@@ -354,11 +350,11 @@ It retained `minApiLevel="5.2.0"`, permissions, languages, application identity,
 Representative command shape:
 
 ```sh
-'/Users/ducksoft/Library/Application Support/Garmin/ConnectIQ/Sdks/connectiq-sdk-mac-9.1.0-2026-03-09-6a872a80b/bin/monkeyc' \
+"$(cat "$HOME/Library/Application Support/Garmin/ConnectIQ/current-sdk.cfg")/bin/monkeyc" \
   -d fr255 \
   -f research.jungle \
   -o fr255.prg \
-  -y '/Users/ducksoft/Library/Application Support/Garmin/ConnectIQ/developer_key.der' \
+  -y "$HOME/Library/Application Support/Garmin/ConnectIQ/developer_key.der" \
   --build-stats 0
 ```
 
@@ -385,11 +381,11 @@ An independent temporary harness later reported the same `152,168` foreground Da
 Command:
 
 ```sh
-'/Users/ducksoft/Library/Application Support/Garmin/ConnectIQ/Sdks/connectiq-sdk-mac-9.1.0-2026-03-09-6a872a80b/bin/monkeyc' \
+"$(cat "$HOME/Library/Application Support/Garmin/ConnectIQ/current-sdk.cfg")/bin/monkeyc" \
   -e \
   -f research.jungle \
   -o PolarFinder.iq \
-  -y '/Users/ducksoft/Library/Application Support/Garmin/ConnectIQ/developer_key.der' \
+  -y "$HOME/Library/Application Support/Garmin/ConnectIQ/developer_key.der" \
   --build-stats 0
 ```
 
