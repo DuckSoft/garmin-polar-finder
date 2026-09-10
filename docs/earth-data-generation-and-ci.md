@@ -168,21 +168,20 @@ to the action's `developerKey` input. An `if: always()` cleanup step removes
 the key after compilation, including failed builds. Artifact upload selects
 only the expected PRG file.
 
-All external actions are pinned to immutable commit SHAs:
+External actions use version tags:
 
-| Action | Commit | Version annotation |
-| --- | --- | --- |
-| `actions/checkout` | `ea165f8d65b6e75b540449e92b4886f43607fa02` | v4 |
-| `astral-sh/setup-uv` | `20cfd1bf945f4377ade1205e4dbc17946fc9a30d` | v10.0.1 |
-| `blackshadev/garmin-connectiq-build-action` | `8868fb0edf4ced6686f7468f0574e3cd9d8337b3` | v9.2.0 |
-| `actions/upload-artifact` | `11d5960a326750d5838078e36cf38b85af677262` | v4 |
+| Action | Reference |
+| --- | --- |
+| `actions/checkout` | `v4` |
+| `astral-sh/setup-uv` | `v10.0.1` |
+| `blackshadev/garmin-connectiq-build-action` | `9.2.0` |
+| `actions/upload-artifact` | `v4` |
 
-setup-uv installs uv **0.12.12**. The Garmin action's v9.2.0 label identifies the
+setup-uv installs uv **0.12.12**. The Garmin action's 9.2.0 tag identifies the
 action release; its embedded tools image is currently **9.1.1**, so the action
-label must not be described as SDK 9.2.0. Action commit pins freeze the action
-definitions; they do not turn a transitive container image tag into an immutable
-image digest. Review the action implementation and its image reference when
-updating the pin.
+tag must not be described as SDK 9.2.0. Version tags and the Garmin action's
+transitive container image tag can change upstream; review both implementations
+when updating or rerunning the workflow.
 
 The build matrix contains exactly `fr255`, `fr255s`, `fr255m`, `fr255sm`, and
 `fr965`. Each independent job compiles `monkey.jungle` with `typeCheck: '0'`,
