@@ -4,12 +4,35 @@ on:
 env:
   COPILOT_AGENT_FIREWALL_ALLOW_LIST_ADDITIONS: developer.garmin.com
 jobs:
-  copilot-setup-steps: 
+  copilot-setup-steps:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - uses: actions/setup-java@v4
       with:
         distribution: temurin
         java-version: "17"
     - name: Setup ConnectIQ SDK
+      id: setup-connectiq
       uses: DuckSoft/setup-connectiq-actions@v1
+    - name: Prepare Makefile Garmin paths
+      shell: bash
+      env:
+        CIQ_DEVELOPER_KEY: ${{ secrets.CIQ_DEVELOPER_KEY }}
+      run: |
+        set -euo pipefail
+
+        garmin_home="$HOME/Library/Application Support/Garmin/ConnectIQ"
+        mkdir -p "$garmin_home"
+        printf '%s\n' "$CONNECT_IQ_HOME" > "$garmin_home/current-sdk.cfg"
+
+        developer_key="$garmin_home/developer_key.der"
+        if [[ -n "${CIQ_DEVELOPER_KEY:-}" ]]; then
+          printf '%s' "$CIQ_DEVELOPER_KEY" | base64 --decode > "$developer_key"
+        elif [[ ! -s "$developer_key" ]]; then
+          openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -outform DER -nocrypt -out "$developer_key"
+        fi
+
+        chmod 600 "$developer_key"
+        test -s "$developer_key"
