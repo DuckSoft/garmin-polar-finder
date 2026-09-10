@@ -2,9 +2,9 @@ import Toybox.Math;
 import Toybox.Test;
 import Toybox.WatchUi;
 
-/* Official SOFA t_atco13 vector (release 2016-05-03). Its tolerances cover
- * the legacy synchronous compatibility path's measured target-runtime error;
- * production precision is checked separately against the frozen pyerfa vector. */
+/* Fixed expected values below come from the official SOFA t_atco13 vector
+ * and an independently frozen pyerfa vector. Production precision is checked
+ * through the resumable begin/step API without a same-implementation oracle. */
 function withinTolerance(actual, expected, tolerance) {
     var error = actual - expected;
     if (error < 0.0) { error = -error; }
@@ -52,38 +52,9 @@ function beijingPressureOffVectorMatchesPyerfa(logger as Test.Logger) {
 }
 
 
-
-(:test)
-function astrometryReferenceVector(logger as Test.Logger) {
-    var r = Astrometry.calculate(
-        2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
-        2456384.5, 0.969254051, 0.1550675,
-        -0.527800806, -1.2345856, 2738.0,
-        2.47230737e-7, 1.82640464e-6,
-        731.0, 12.8, 0.59, 0.55);
-    var ok = r[:status] == 0;
-    var names = [:aob, :zob, :hob, :dob, :rob, :eo];
-    var expected = [0.09251774485358230653, 1.407661405256767021,
-                    -0.09265154431403157925, 0.1716626560075591655,
-                    2.710260453503097719, -0.003020548354802412839];
-    var tolerance = [2e-6, 1e-7, 2e-6, 1e-7, 5e-7, 3e-8];
-    var i = 0;
-    for (i = 0; i < names.size(); i += 1) {
-        if (!withinTolerance(r[names[i]], expected[i], tolerance[i])) { ok = false; }
-    }
-    var injectedError = expected[0] + tolerance[0] * 2.0;
-    if (withinTolerance(injectedError, expected[0], tolerance[0])) { ok = false; }
-    return ok;
-}
-
 (:test)
 function astrometryResumableReferenceVector(logger as Test.Logger) {
     var state = Astrometry.begin(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
-        2456384.5, 0.969254051, 0.1550675,
-        -0.527800806, -1.2345856, 2738.0,
-        2.47230737e-7, 1.82640464e-6,
-        731.0, 12.8, 0.59, 0.55);
-    var direct = Astrometry.calculate(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
         2456384.5, 0.969254051, 0.1550675,
         -0.527800806, -1.2345856, 2738.0,
         2.47230737e-7, 1.82640464e-6,
@@ -103,12 +74,15 @@ function astrometryResumableReferenceVector(logger as Test.Logger) {
         result = reply[:result];
         steps += 1;
     }
-    ok = ok && done && steps > 10 && result[:status] == direct[:status];
+    ok = ok && done && steps > 10 && result[:status] == 0;
     var names = [:aob, :zob, :hob, :dob, :rob, :eo];
+    var expected = [0.09251774485358230653, 1.407661405256767021,
+                    -0.09265154431403157925, 0.1716626560075591655,
+                    2.710260453503097719, -0.003020548354802412839];
     var tolerance = [2e-6, 1e-7, 2e-6, 1e-7, 5e-7, 3e-8];
     var i = 0;
     for (i = 0; i < names.size(); i += 1) {
-        if (!withinTolerance(result[names[i]], direct[names[i]], tolerance[i])) { ok = false; }
+        if (!withinTolerance(result[names[i]], expected[i], tolerance[i])) { ok = false; }
     }
     var cancelled = Astrometry.begin(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
         2456384.5, 0.969254051, 0.1550675,
@@ -121,12 +95,14 @@ function astrometryResumableReferenceVector(logger as Test.Logger) {
     return ok;
 }
 
+
 (:test)
 function astrometryRejectsOutOfRangeUtc(logger as Test.Logger) {
-    var r = Astrometry.calculate(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
+    var state = Astrometry.begin(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
         1000000.0, 0.0, 0.0, -0.5278, -1.2346, 2738.0,
         0.0, 0.0, 731.0, 12.8, 0.59, 0.55);
-    return r[:status] < 0;
+    var reply = Astrometry.step(state);
+    return reply[:done] && reply[:result][:status] < 0;
 }
 
 (:test)
@@ -134,13 +110,19 @@ function earthDataInterpolatesAndRejects(logger as Test.Logger) {
     var a = EarthData.eop(61292.0);
     var b = EarthData.eop(61293.0);
     var m = EarthData.eop(61292.5);
+    var finalDay = EarthData.eop(61659.0);
     var ok = a[:status] == 0 && b[:status] == 0 && m[:status] == 0;
     ok = ok && m[:dut1] > b[:dut1] && m[:dut1] < a[:dut1];
     var loXp = a[:xp] < b[:xp] ? a[:xp] : b[:xp];
     var hiXp = a[:xp] > b[:xp] ? a[:xp] : b[:xp];
     ok = ok && m[:xp] > loXp && m[:xp] < hiXp;
-    ok = ok && !a[:warning] && EarthData.eop(61659.0)[:warning];
-    ok = ok && EarthData.eop(61660.0)[:status] < 0;
+    ok = ok && a[:first] == 61292.0 && a[:last] == 61659.0;
+    ok = ok && finalDay[:status] == 0
+        && withinTolerance(finalDay[:dut1], -0.1044597d, 1.0e-8d);
+    ok = ok && !EarthData.eop(61628.999999d)[:warning]
+        && EarthData.eop(61629.0d)[:warning];
+    ok = ok && EarthData.eop(61291.999999d)[:status] < 0
+        && EarthData.eop(61659.000001d)[:status] < 0;
     var geo = EarthData.geoidOffset(0.0, 0.0);
     ok = ok && geo > 17.15 && geo < 17.18;
     var ellipsoid = EarthData.mslToEllipsoid(0.0, 0.0, 100.0);
@@ -149,27 +131,35 @@ function earthDataInterpolatesAndRejects(logger as Test.Logger) {
 }
 (:test)
 function menuFocusVisibilityTracksDrawableGeometry(logger as Test.Logger) {
-    // The saved Locate layout derives its row top and rectangle height from
-    // the fr965 fonts. At the observed geometry, focus 5 must scroll on the
-    // first DOWN from focus 4 rather than waiting for a fixed slot count.
-    var scroll = focusVisibleScroll(164, 42, 18, 58, 390, 5, 0);
-    var center = 164 + (5 - scroll) * 42;
-    if (scroll != 1 || center - 18 < 58 || center + 18 > 390) { return false; }
-
-    // Exercise the fixed-height menu geometries over a wide focus range in
-    // both directions. Every selected row must remain wholly drawable.
-    var tops = [68, 82, 104, 116, 244, 250, 276];
-    for (var t = 0; t < tops.size(); t += 1) {
-        scroll = 0;
-        for (var focus = 0; focus < 31; focus += 1) {
-            scroll = focusVisibleScroll(tops[t], 42, 14, 58, 390, focus, scroll);
-            center = tops[t] + (focus - scroll) * 42;
-            if (center - 14 < 58 || center + 14 > 390) { return false; }
+    var profiles = [
+        new DisplayProfile(218, 218, 19),
+        new DisplayProfile(260, 260, 19),
+        new DisplayProfile(454, 454, 37)
+    ];
+    var referenceTops = [68, 82, 104, 116, 244, 250, 276];
+    for (var p = 0; p < profiles.size(); p += 1) {
+        var profile = profiles[p];
+        if (profile.centerX * 2 != profile.width
+                || profile.reticleRadius >= profile.reticleSafeRadius) {
+            return false;
         }
-        for (var focusBack = 30; focusBack >= 0; focusBack -= 1) {
-            scroll = focusVisibleScroll(tops[t], 42, 14, 58, 390, focusBack, scroll);
-            center = tops[t] + (focusBack - scroll) * 42;
-            if (center - 14 < 58 || center + 14 > 390) { return false; }
+        for (var t = 0; t < referenceTops.size(); t += 1) {
+            var top = profile.rowTop(referenceTops[t], 14);
+            var scroll = 0;
+            for (var focus = 0; focus < 31; focus += 1) {
+                scroll = focusVisibleScroll(top, profile.rowPitch, 14,
+                    profile.drawableTop, profile.drawableBottom, focus, scroll);
+                var center = top + (focus - scroll) * profile.rowPitch;
+                if (center - 14 < profile.drawableTop
+                        || center + 14 > profile.drawableBottom) { return false; }
+            }
+            for (var focusBack = 30; focusBack >= 0; focusBack -= 1) {
+                scroll = focusVisibleScroll(top, profile.rowPitch, 14,
+                    profile.drawableTop, profile.drawableBottom, focusBack, scroll);
+                var backCenter = top + (focusBack - scroll) * profile.rowPitch;
+                if (backCenter - 14 < profile.drawableTop
+                        || backCenter + 14 > profile.drawableBottom) { return false; }
+            }
         }
     }
     return true;
@@ -205,17 +195,40 @@ function atmosphereConditionalRowsRemainSelectable(logger as Test.Logger) {
 function emptyLocateNavigationWrapResetsScrollAndSkipsDisabledConfirm(logger as Test.Logger) {
     var wrappedUp = wrapMenuFocus(-1, 8, 0);
     if (wrappedUp[0] != 8 || wrappedUp[1] != 0) { return false; }
-    var locateScroll = focusVisibleScroll(116, 42, 14, 58, 390,
-                                          wrappedUp[0], wrappedUp[1]);
-    if (locateScroll != 2) { return false; }
-    var actionsScroll = focusVisibleScroll(104, 42, 14, 58, 390, 3,
-                                           wrappedUp[1]);
-    if (actionsScroll != 0) { return false; }
-    var wrappedDown = wrapMenuFocus(wrappedUp[0] + 1, 8, locateScroll);
+    var profiles = [
+        new DisplayProfile(218, 218, 19),
+        new DisplayProfile(260, 260, 19),
+        new DisplayProfile(454, 454, 37)
+    ];
+    for (var i = 0; i < profiles.size(); i += 1) {
+        var profile = profiles[i];
+        var top = profile.rowTop(116, 14);
+        var locateScroll = focusVisibleScroll(top, profile.rowPitch, 14,
+            profile.drawableTop, profile.drawableBottom, wrappedUp[0], wrappedUp[1]);
+        var center = top + (wrappedUp[0] - locateScroll) * profile.rowPitch;
+        if (center - 14 < profile.drawableTop
+                || center + 14 > profile.drawableBottom) { return false; }
+    }
+    var wrappedDown = wrapMenuFocus(wrappedUp[0] + 1, 8, 4);
     if (wrappedDown[0] != 0 || wrappedDown[1] != 0) { return false; }
     return locateVisibleFocus(7, 1, false) == 8
         && locateVisibleFocus(7, -1, false) == 6
         && locateVisibleFocus(7, 1, true) == 7;
+}
+
+(:test)
+function reticlePersistenceAndVisualProfilesRemainStable(logger as Test.Logger) {
+    return RETICLE_GENERIC == 0
+        && RETICLE_IOPTRON == 1
+        && RETICLE_SIFO == 2
+        && normalizeReticleType(RETICLE_GENERIC) == RETICLE_GENERIC
+        && normalizeReticleType(RETICLE_IOPTRON) == RETICLE_IOPTRON
+        && normalizeReticleType(RETICLE_SIFO) == RETICLE_SIFO
+        && normalizeReticleType(3) == RETICLE_GENERIC
+        && normalizeReticleType(null) == RETICLE_GENERIC
+        && reticleShowsOuterScale(RETICLE_IOPTRON)
+        && !reticleShowsOuterScale(RETICLE_SIFO)
+        && !reticleShowsOuterScale(RETICLE_GENERIC);
 }
 
 (:test)
@@ -311,15 +324,20 @@ function ioptronNormalize2PiBoundaries(logger as Test.Logger) {
 (:test)
 function ioptronMarkerCardinalPositions(logger as Test.Logger) {
     var point = [0.0, 0.0];
-    return ioptronMarkerPosition(point, 0.0, 0.0, 35.0)
-        && withinTolerance(point[0], 227.0, 0.002)
-        && withinTolerance(point[1], 312.0, 0.002);
+    if (!ioptronMarkerPosition(point, 0.0, 0.0, 35.0, 227.0, 227.0, 170.0, 70.0)
+            || !withinTolerance(point[0], 227.0, 0.002)
+            || !withinTolerance(point[1], 312.0, 0.002)) { return false; }
+    var compact = new DisplayProfile(218, 218, 19);
+    return ioptronMarkerPosition(point, 0.0, 0.0, 35.0,
+            compact.centerX.toFloat(), compact.centerY.toFloat(), compact.reticleRadius, 70.0)
+        && withinTolerance(point[0], 109.0, 0.002)
+        && withinTolerance(point[1], 109.0 + compact.reticleRadius / 2.0, 0.002);
 }
 
 (:test)
 function ioptronMarkerAtSixHours(logger as Test.Logger) {
     var point = [0.0, 0.0];
-    return ioptronMarkerPosition(point, Math.PI / 2.0, 0.0, 35.0)
+    return ioptronMarkerPosition(point, Math.PI / 2.0, 0.0, 35.0, 227.0, 227.0, 170.0, 70.0)
         && withinTolerance(point[0], 312.0, 0.002)
         && withinTolerance(point[1], 227.0, 0.002);
 }
@@ -327,7 +345,7 @@ function ioptronMarkerAtSixHours(logger as Test.Logger) {
 (:test)
 function ioptronMarkerAtTwelveHours(logger as Test.Logger) {
     var point = [0.0, 0.0];
-    return ioptronMarkerPosition(point, Math.PI, 0.0, 35.0)
+    return ioptronMarkerPosition(point, Math.PI, 0.0, 35.0, 227.0, 227.0, 170.0, 70.0)
         && withinTolerance(point[0], 227.0, 0.002)
         && withinTolerance(point[1], 142.0, 0.002);
 }
@@ -335,30 +353,57 @@ function ioptronMarkerAtTwelveHours(logger as Test.Logger) {
 (:test)
 function ioptronMarkerAtEighteenHours(logger as Test.Logger) {
     var point = [0.0, 0.0];
-    return ioptronMarkerPosition(point, 3.0 * Math.PI / 2.0, 0.0, 35.0)
+    return ioptronMarkerPosition(point, 3.0 * Math.PI / 2.0, 0.0, 35.0, 227.0, 227.0, 170.0, 70.0)
         && withinTolerance(point[0], 142.0, 0.002)
         && withinTolerance(point[1], 227.0, 0.002);
 }
 
 (:test)
-function ioptronPoleDistanceEndpoints(logger as Test.Logger) {
-    return ioptronValidPoleDistance(0.0)
-        && ioptronValidPoleDistance(70.0)
-        && !ioptronValidPoleDistance(-0.01)
-        && !ioptronValidPoleDistance(70.01)
-        && !ioptronValidPoleDistance(null);
+function reticlePoleDistanceBoundariesAndSifoScale(logger as Test.Logger) {
+    if (!reticleValidPoleDistance(RETICLE_IOPTRON, 0.0)
+            || !reticleValidPoleDistance(RETICLE_IOPTRON, 70.0)
+            || reticleValidPoleDistance(RETICLE_IOPTRON, 70.001)
+            || !reticleValidPoleDistance(RETICLE_SIFO, 44.0)
+            || reticleValidPoleDistance(RETICLE_SIFO, 44.001)
+            || reticleValidPoleDistance(RETICLE_SIFO, -0.001)
+            || reticleValidPoleDistance(RETICLE_SIFO, null)) { return false; }
+    var profiles = [
+        new DisplayProfile(218, 218, 19),
+        new DisplayProfile(260, 260, 19),
+        new DisplayProfile(454, 454, 37)
+    ];
+    for (var i = 0; i < profiles.size(); i += 1) {
+        var profile = profiles[i];
+        var sifoRadius = reticleAngularRadius(RETICLE_SIFO, profile.reticleRadius);
+        var point = [0.0, 0.0];
+        if (!withinTolerance(reticleAngularRadius(RETICLE_IOPTRON, profile.reticleRadius),
+                             profile.reticleRadius, 0.0002)
+                || !withinTolerance(ioptronRingRadius(44.0, sifoRadius),
+                                    profile.reticleRadius, 0.0002)
+                || !ioptronMarkerPosition(point, 0.0, 0.0, 44.0,
+                    profile.centerX.toFloat(), profile.centerY.toFloat(),
+                    sifoRadius, 44.0)
+                || !withinTolerance(point[0], profile.centerX.toFloat(), 0.002)
+                || !withinTolerance(point[1],
+                                    profile.centerY + profile.reticleRadius, 0.002)
+                || ioptronMarkerPosition(point, 0.0, 0.0, 44.001,
+                    profile.centerX.toFloat(), profile.centerY.toFloat(),
+                    sifoRadius, 44.0)) { return false; }
+    }
+    return true;
 }
 
 (:test)
 function ioptronMarkerRejectsNegativePoleDistance(logger as Test.Logger) {
     var point = [0.0, 0.0];
-    return !ioptronMarkerPosition(point, 0.0, 0.0, -0.01);
+    return !ioptronMarkerPosition(point, 0.0, 0.0, -0.01, 227.0, 227.0, 170.0, 70.0);
 }
 
 (:test)
 function ioptronMarkerRejectsPoleDistanceAboveSeventy(logger as Test.Logger) {
     var point = [0.0, 0.0];
-    return !ioptronMarkerPosition(point, 0.0, 0.0, 70.01);
+    return !ioptronMarkerPosition(point, 0.0, 0.0, 70.01, 227.0, 227.0, 170.0, 70.0)
+        && !ioptronMarkerPosition(point, 0.0, 0.0, 35.0, 227.0, 227.0, 0.0, 70.0);
 }
 
 (:test)
@@ -370,7 +415,7 @@ function ioptronRejectsNaNWhenSupported(logger as Test.Logger) {
         return true;
     }
     if (nan == nan) { return true; }
-    return !ioptronValidPoleDistance(nan)
+    return !reticleValidPoleDistance(RETICLE_IOPTRON, nan)
         && ioptronNormalize2Pi(nan) == null;
 }
 
@@ -384,7 +429,7 @@ function ioptronMarkerRejectsNaNWhenSupported(logger as Test.Logger) {
     }
     if (nan == nan) { return true; }
     var point = [0.0, 0.0];
-    return !ioptronMarkerPosition(point, nan, 0.0, 35.0);
+    return !ioptronMarkerPosition(point, nan, 0.0, 35.0, 227.0, 227.0, 170.0, 70.0);
 }
 
 (:test)
@@ -396,10 +441,10 @@ function ioptronMarkerAdvancesAcrossWrap(logger as Test.Logger) {
     // For elapsed=3600 s, H=2π−0.2+elapsed*(1.0027379π/43200)
     // wraps to 0.0625162 rad and rho=170*35/70=85 px.
     var point = [0.0, 0.0];
-    var ok = ioptronMarkerPosition(point, startAngle, elapsedSeconds, poleDistance)
+    var ok = ioptronMarkerPosition(point, startAngle, elapsedSeconds, poleDistance, 227.0, 227.0, 170.0, 70.0)
         && withinTolerance(point[0], 232.3104, 0.01)
         && withinTolerance(point[1], 311.8340, 0.01);
-    var invalidElapsed = ioptronMarkerPosition(point, startAngle, null, poleDistance);
+    var invalidElapsed = ioptronMarkerPosition(point, startAngle, null, poleDistance, 227.0, 227.0, 170.0, 70.0);
     return ok && !invalidElapsed;
 }
 

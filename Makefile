@@ -4,16 +4,41 @@ MONKEYDO := $(SDK_HOME)/bin/monkeydo
 CONNECTIQ := $(SDK_HOME)/bin/connectiq
 DEVELOPER_KEY ?= $(HOME)/Library/Application Support/Garmin/ConnectIQ/developer_key.der
 DEVICE ?= fr965
-OUTPUT := bin/PolarFinder.prg
-ICON := resources/drawables/launcher_icon.png
+DEVICES := fr255 fr255s fr255m fr255sm fr965
+TEST_DEVICES := fr255s fr255 fr965
+OUTPUT := bin/PolarFinder-$(DEVICE).prg
+TEST_OUTPUT := bin/PolarFinder-tests-$(DEVICE).prg
+PACKAGE_OUTPUT := bin/PolarFinder.iq
+ICON_454 := resources/drawables/launcher_icon.png
+ICON_218 := resources-round-218x218/drawables/launcher_icon.png
+TEST_JUNGLES := monkey.jungle:test.jungle
+ICON_260 := resources-round-260x260/drawables/launcher_icon.png
+ICONS := $(ICON_454) $(ICON_218) $(ICON_260)
 
-.PHONY: build simulator run lint test clean
+.PHONY: build build-all package simulator run lint test test-profiles clean icons $(DEVICES:%=build-%) $(TEST_DEVICES:%=test-%)
 
-TEST_OUTPUT := bin/PolarFinder-tests.prg
+# The SDK compiler uses shared generated state and is not safe to run concurrently.
+.NOTPARALLEL:
 
-test: $(ICON)
+icons: $(ICONS)
+
+build: $(ICONS)
 	mkdir -p bin
-	"$(MONKEYC)" -t -d "$(DEVICE)" -f monkey.jungle -o "$(TEST_OUTPUT)" -y "$(DEVELOPER_KEY)"
+	"$(MONKEYC)" -d "$(DEVICE)" -f monkey.jungle -o "$(OUTPUT)" -y "$(DEVELOPER_KEY)"
+
+build-all: $(DEVICES:%=build-%)
+
+$(DEVICES:%=build-%): build-%: $(ICONS)
+	mkdir -p bin
+	"$(MONKEYC)" -d "$*" -f monkey.jungle -o "bin/PolarFinder-$*.prg" -y "$(DEVELOPER_KEY)"
+
+package: $(ICONS)
+	mkdir -p bin
+	"$(MONKEYC)" -e -f monkey.jungle -o "$(PACKAGE_OUTPUT)" -y "$(DEVELOPER_KEY)"
+
+test: $(ICONS)
+	mkdir -p bin
+	"$(MONKEYC)" -t -d "$(DEVICE)" -f "$(TEST_JUNGLES)" -o "$(TEST_OUTPUT)" -y "$(DEVELOPER_KEY)"
 	@tmp="$$(mktemp "$${TMPDIR:-/tmp}/polarfinder-test.XXXXXX")"; \
 	trap 'rm -f "$$tmp"' EXIT HUP INT TERM; \
 	set -o pipefail; \
@@ -24,20 +49,23 @@ test: $(ICON)
 	     /FAILED|ERROR|Exception|[Tt]imeout|[Cc]rash/ { bad=1 } \
 	     END { exit !(ok && !bad) }' "$$tmp"; \
 	validation=$$?; \
-	if [ $$validation -ne 0 ]; then \
-		exit 1; \
-	fi; \
+	if [ $$validation -ne 0 ]; then exit 1; fi; \
 	if [ $$runner -ne 0 ]; then \
 		echo "monkeydo returned $$runner after a validated passing summary; accepting known test-runner status quirk." >&2; \
 	fi
 
-build: $(ICON)
-	mkdir -p bin
-	"$(MONKEYC)" -d "$(DEVICE)" -f monkey.jungle -o "$(OUTPUT)" -y "$(DEVELOPER_KEY)"
+test-profiles: $(TEST_DEVICES:%=test-%)
 
-$(ICON): artwork/launcher-icon.svg
+$(TEST_DEVICES:%=test-%): test-%:
+	$(MAKE) --no-print-directory DEVICE="$*" test
+
+$(ICON_454): artwork/launcher-icon.svg
 	mkdir -p "$(dir $@)"
 	magick -background none "$<" -resize 65x65 "$@"
+
+$(ICON_218) $(ICON_260): artwork/launcher-icon.svg
+	mkdir -p "$(dir $@)"
+	magick -background none "$<" -resize 40x40 -colors 64 -dither FloydSteinberg "$@"
 
 simulator:
 	"$(CONNECTIQ)"
@@ -47,6 +75,7 @@ run: build
 
 lint:
 	npx --yes --package=prettier@3.6.2 --package=@prettier/plugin-xml@3.4.2 sh -c 'prettier --plugin="$$(dirname "$$(dirname "$$(command -v prettier)")")/@prettier/plugin-xml/src/plugin.js" --tab-width=2 --use-tabs=false --xml-whitespace-sensitivity=ignore --check "**/*.xml"'
+
 
 clean:
 	rm -rf bin

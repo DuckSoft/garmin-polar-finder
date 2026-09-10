@@ -2260,7 +2260,6 @@ module Astrometry {
     function pfw06(d1,d2){var t=((d1-DJ00)+d2)/DJC;var g=-0.052928+t*(10.556378+t*(0.4932044+t*(-0.00031238+t*(-0.000002788+t*0.0000000260))));var p=84381.412819+t*(-46.811016+t*(0.0511268+t*(0.00053289+t*(-0.000000440+t*(-0.0000000176)))));var ps=-0.041775+t*(5038.481484+t*(1.5584175+t*(-0.00018522+t*(-0.000026452+t*(-0.0000000148)))));return [g*DAS2R,p*DAS2R,ps*DAS2R,obl06(d1,d2)];}
     function fw2m(gamb,phib,psi,eps){var r=ident();rz(gamb,r);rx(phib,r);rz(-psi,r);rx(-eps,r);return r;}
 
-    function epv00(d1,d2){var t=((d1-DJ00)+d2)/DJY,t2=t*t,es=[[e0x,e0y,e0z],[e1x,e1y,e1z],[e2x,e2y,e2z]],ss=[[s0x,s0y,s0z],[s1x,s1y,s1z],[s2x,s2y,s2z]],ph=[0.0,0.0,0.0],vh=[0.0,0.0,0.0],pb=[0.0,0.0,0.0],vb=[0.0,0.0,0.0];var i=0;for(i=0;i<3;i+=1){var xyz=0.0,xyzd=0.0;var k=0;for(k=0;k<3;k+=1){var ca=es[k][i],n=ca.size()/3;var j=0;for(j=0;j<n;j+=1){var ix=3*j,a=ca[ix],b=ca[ix+1],c=ca[ix+2],ct=c*t,p=b+ct,cp=Math.cos(p);if(k==0){xyz+=a*cp;xyzd-=a*c*Math.sin(p);}else if(k==1){xyz+=a*t*cp;xyzd+=a*(cp-ct*Math.sin(p));}else{xyz+=a*t2*cp;xyzd+=a*t*(2.0*cp-ct*Math.sin(p));}}}ph[i]=xyz;vh[i]=xyzd/DJY;var k2=0;for(k2=0;k2<3;k2+=1){var ca2=ss[k2][i],n2=ca2.size()/3;var j2=0;for(j2=0;j2<n2;j2+=1){var ix2=3*j2,a2=ca2[ix2],b2=ca2[ix2+1],c2=ca2[ix2+2],ct2=c2*t,p2=b2+ct2,cp2=Math.cos(p2);if(k2==0){xyz+=a2*cp2;xyzd-=a2*c2*Math.sin(p2);}else if(k2==1){xyz+=a2*t*cp2;xyzd+=a2*(cp2-ct2*Math.sin(p2));}else{xyz+=a2*t2*cp2;xyzd+=a2*t*(2.0*cp2-ct2*Math.sin(p2));}}}pb[i]=xyz;vb[i]=xyzd/DJY;}var a12=0.000000211284,a13=-0.000000091603,a21=-0.000000230286,a22=0.917482137087,a23=-0.397776982902,a32=0.397776982902,a33=0.917482137087;return [0,[[ph[0]+a12*ph[1]+a13*ph[2],a21*ph[0]+a22*ph[1]+a23*ph[2],a32*ph[1]+a33*ph[2]],[vh[0]+a12*vh[1]+a13*vh[2],a21*vh[0]+a22*vh[1]+a23*vh[2],a32*vh[1]+a33*vh[2]]],[[pb[0]+a12*pb[1]+a13*pb[2],a21*pb[0]+a22*pb[1]+a23*pb[2],a32*pb[1]+a33*pb[2]],[vb[0]+a12*vb[1]+a13*vb[2],a21*vb[0]+a22*vb[1]+a23*vb[2],a32*vb[1]+a33*vb[2]]]];}
     function fal03(t){return mod((485868.249036+t*(1717915923.2178+t*(31.8792+t*(0.051635+t*(-0.00024470))))),TURNAS)*DAS2R;}
     function faf03(t){return mod((335779.526232+t*(1739527262.8478+t*(-12.7512+t*(-0.001037+t*(0.00000417))))),TURNAS)*DAS2R;}
     function faom03(t){return mod((450160.398036+t*(-6962890.5431+t*(7.4722+t*(0.007702+t*(-0.00005939))))),TURNAS)*DAS2R;}
@@ -2274,15 +2273,10 @@ module Astrometry {
     function fasa03(t){return mod(0.874016757+21.3299104960*t,D2PI);}
     function faur03(t){return mod(5.481293872+7.4781598567*t,D2PI);}
     function fapa03(t){return(0.024381750+0.00000538691*t)*t;}
-    function nut00a(d1,d2){var t=((d1-DJ00)+d2)/DJC,el=fal03(t),elp=falp03(t),f=faf03(t),d=fad03(t),om=faom03(t),dpv=0.0,dev=0.0;var i=xls.size()-11;for(i=xls.size()-11;i>=0;i-=11){var arg=mod(xls[i]*el+xls[i+1]*elp+xls[i+2]*f+xls[i+3]*d+xls[i+4]*om,D2PI),sa=Math.sin(arg),ca=Math.cos(arg);dpv+=(xls[i+5]+xls[i+6]*t)*sa+xls[i+7]*ca;dev+=(xls[i+8]+xls[i+9]*t)*ca+xls[i+10]*sa;}var al=mod(2.35555598+8328.6914269554*t,D2PI),af=mod(1.627905234+8433.466158131*t,D2PI),ad=mod(5.198466741+7771.3771468121*t,D2PI),aom=mod(2.18243920-33.757045*t,D2PI),apa=fapa03(t),alme=fame03(t),alve=fave03(t),alea=fae03(t),alma=fama03(t),alju=faju03(t),alsa=fasa03(t),alur=faur03(t),alne=mod(5.321159000+3.8127774000*t,D2PI),dpp=0.0,dep=0.0;var q=xpl.size()-17;for(q=xpl.size()-17;q>=0;q-=17){var ar=mod(xpl[q]*al+xpl[q+1]*af+xpl[q+2]*ad+xpl[q+3]*aom+xpl[q+4]*alme+xpl[q+5]*alve+xpl[q+6]*alea+xpl[q+7]*alma+xpl[q+8]*alju+xpl[q+9]*alsa+xpl[q+10]*alur+xpl[q+11]*alne+xpl[q+12]*apa,D2PI),ss=Math.sin(ar),cc=Math.cos(ar);dpp+=xpl[q+13]*ss+xpl[q+14]*cc;dep+=xpl[q+15]*ss+xpl[q+16]*cc;}var u2r=DAS2R/1e7;return[(dpv+dpp)*u2r,(dev+dep)*u2r];}
-    function nut06a(d1,d2){var t=((d1-DJ00)+d2)/DJC,n=nut00a(d1,d2),fj2=-2.7774e-6*t;return[n[0]+n[0]*(0.4697e-6+fj2),n[1]+n[1]*fj2];}
-    function pnm06a(d1,d2){var p=pfw06(d1,d2),n=nut06a(d1,d2);return fw2m(p[0],p[1],p[2]+n[0],p[3]+n[1]);}
-    function s06ev(a,fa){var q=0.0;var i=a.size()-10;for(i=a.size()-10;i>=0;i-=10){var z=0.0;var j=0;for(j=0;j<8;j+=1){z+=a[i+j]*fa[j];}q+=a[i+8]*Math.sin(z)+a[i+9]*Math.cos(z);}return q;}
-    function s06(d1,d2,x,y){var t=((d1-DJ00)+d2)/DJC,fa=[fal03(t),falp03(t),faf03(t),fad03(t),faom03(t),fave03(t),fae03(t),fapa03(t)],w0=94.00e-6,w1=3808.65e-6,w2=-122.68e-6,w3=-72574.11e-6,w4=27.98e-6,w5=15.62e-6;w0+=s06ev(s06_s0,fa);w1+=s06ev(s06_s1,fa);w2+=s06ev(s06_s2,fa);w3+=s06ev(s06_s3,fa);w4+=s06ev(s06_s4,fa);return(w0+(w1+(w2+(w3+(w4+w5*t)*t)*t)*t)*t)*DAS2R-x*y/2.0;}
     function eors(r,s){var x=r[2][0],ax=x!=0.0?x:1.0,xs=1.0-ax*x,ys=-ax*r[2][1],zs=-x,p=r[0][0]*xs+r[0][1]*ys+r[0][2]*zs,q=r[1][0]*xs+r[1][1]*ys+r[1][2]*zs;return(p!=0.0||q!=0.0)?s-Math.atan2(q,p):s;}
 
     // Resumable astrometry contract. Each step performs at most the bounded
-    // term budget in epv00, nut00a, or S06; callers may discard state to cancel.
+    // term budget in the ephemeris, nutation, or S06 series; discard state to cancel.
     function begin(rc, dc, pr, pd, px, rv, utc1, utc2, dut1, elong, phi, hm, xp, yp, phpa, tc, rh, wl) {
         var es = [[e0x, e0y, e0z], [e1x, e1y, e1z], [e2x, e2y, e2z]];
         var ss = [[s0x, s0y, s0z], [s1x, s1y, s1z], [s2x, s2y, s2z]];
@@ -2522,102 +2516,4 @@ module Astrometry {
         return resumableReply(state, true, state[:result]);
     }
 
-    // Full SOFA iauAtco13 contract, with SOFA names adapted for this derived work.
-    // rc/dc: ICRS J2000 RA/Dec (rad); pr/pd: proper motion (rad/year);
-    // px: parallax (arcsec); rv: radial velocity (km/s, positive receding).
-    // utc1/utc2: quasi-JD UTC parts; dut1: UT1-UTC seconds.
-    // elong/phi: geodetic longitude/latitude (rad, east/north positive);
-    // hm: WGS84 ellipsoidal height (m); xp/yp: polar motion (rad).
-    // phpa: observer pressure (hPa); tc: temperature (C); rh: 0..1 humidity;
-    // wl: wavelength (micrometers). Returns symbols status, aob, zob, hob,
-    // dob, rob, eo (radians), and altitude (radians). Status is 0, +1 warning,
-    // or -1 unacceptable UTC.
-    function atco13(rc, dc, pr, pd, px, rv, utc1, utc2, dut1, elong, phi, hm, xp, yp, phpa, tc, rh, wl) {
-        if (utc1 + utc2 < 1721425.5 || utc1 + utc2 > 5373484.5) {
-            return {:status => -1, :aob => 0.0, :zob => 0.0, :hob => 0.0, :dob => 0.0, :rob => 0.0, :eo => 0.0, :altitude => 0.0};
-        }
-        var tai = utctai(utc1, utc2);
-        var tt = tai2tt(tai[1], tai[2]);
-        var ut1 = utcut1(utc1, utc2, dut1);
-        var ev = epv00(tt[0], tt[1]);
-        var ehpv = ev[1][0];
-        var ebpv = ev[2];
-        var rnpb = pnm06a(tt[0], tt[1]);
-        var x = rnpb[2][0];
-        var y = rnpb[2][1];
-        var ss = s06(tt[0], tt[1], x, y);
-        var theta = era00(ut1[1], ut1[2]);
-        var sp = sp00(tt[0], tt[1]);
-        var ref = refco(phpa, tc, rh, wl);
-        var along = elong + sp;
-        var sl = Math.sin(along);
-        var cl = Math.cos(along);
-        var pvt = pvtob(elong, phi, hm, xp, yp, sp, theta);
-        var pv = trxpv(c2ixys(x, y, ss), pvt);
-        var pmt = ((tt[0] - DJ00) + tt[1]) / DJY;
-        var dpv = [0.0, 0.0, 0.0];
-        var dvv = [0.0, 0.0, 0.0];
-        var pb = [0.0, 0.0, 0.0];
-        var vb = [0.0, 0.0, 0.0];
-        var ph = [0.0, 0.0, 0.0];
-        var v2 = 0.0;
-        var i = 0;
-        for (i = 0; i < 3; i += 1) {
-            dpv[i] = pv[0][i] / DAU;
-            dvv[i] = pv[1][i] / AUDMS;
-            pb[i] = ebpv[0][i] + dpv[i];
-            vb[i] = ebpv[1][i] + dvv[i];
-            ph[i] = ehpv[i] + dpv[i];
-        }
-        var emn = pn(ph);
-        var vv = [0.0, 0.0, 0.0];
-        var k = 0;
-        for (k = 0; k < 3; k += 1) {
-            vv[k] = vb[k] * CR;
-            v2 += vv[k] * vv[k];
-        }
-        var ast = {:pmt => pmt, :eb => pb, :eh => [emn[1], emn[2], emn[3]], :em => emn[0], :v => vv, :bm1 => Math.sqrt(1.0 - v2), :bpn => c2ixys(x, y, ss), :eral => theta + along, :xpl => xp * cl - yp * sl, :ypl => xp * sl + yp * cl, :sphi => Math.sin(phi), :cphi => Math.cos(phi), :diurab => 0.0, :refa => ref[0], :refb => ref[1]};
-        var pco = pmpx(rc, dc, pr, pd, px, rv, ast[:pmt], ast[:eb]);
-        var pnat = ldsun(pco, ast[:eh], ast[:em]);
-        var ppr = aberration(pnat, ast[:v], ast[:em], ast[:bm1]);
-        var pi = rxp(ast[:bpn], ppr);
-        var cs = c2s(pi);
-        var ri = anp(cs[0]);
-        var di = cs[1];
-        var hv = s2c(ri - ast[:eral], di);
-        var xx = hv[0];
-        var yy = hv[1];
-        var zz = hv[2];
-        var xhd = xx + ast[:xpl] * zz;
-        var yhd = yy - ast[:ypl] * zz;
-        var zhd = zz - ast[:xpl] * xx + ast[:ypl] * yy;
-        var ff0 = 1.0 - ast[:diurab] * yhd;
-        var xhdt = ff0 * xhd;
-        var yhdt = ff0 * (yhd + ast[:diurab]);
-        var zhdt = ff0 * zhd;
-        var xaet = ast[:sphi] * xhdt - ast[:cphi] * zhdt;
-        var yaet = yhdt;
-        var zaet = ast[:cphi] * xhdt + ast[:sphi] * zhdt;
-        var az = (xaet != 0.0 || yaet != 0.0) ? Math.atan2(yaet, -xaet) : 0.0;
-        var rr = Math.sqrt(xaet * xaet + yaet * yaet);
-        if (rr <= 1e-6) { rr = 1e-6; }
-        var zsafe = zaet > 0.05 ? zaet : 0.05;
-        var tz = rr / zsafe;
-        var rw = ast[:refb] * tz * tz;
-        var delta = (ast[:refa] + rw) * tz / (1.0 + (ast[:refa] + 3.0 * rw) / (zsafe * zsafe));
-        var cdel = 1.0 - delta * delta / 2.0;
-        var fobs = cdel - delta * zsafe / rr;
-        var xaeo = xaet * fobs;
-        var yaeo = yaet * fobs;
-        var zaeo = cdel * zaet + delta * rr;
-        var zd = Math.atan2(Math.sqrt(xaeo * xaeo + yaeo * yaeo), zaeo);
-        var haVec = [ast[:sphi] * xaeo + ast[:cphi] * zaeo, yaeo, -ast[:cphi] * xaeo + ast[:sphi] * zaeo];
-        var hcs = c2s(haVec);
-        var raobs = ast[:eral] + hcs[0];
-        var out = {:status => 0, :aob => anp(az), :zob => zd, :hob => -hcs[0], :dob => hcs[1], :rob => anp(raobs), :eo => eors(rnpb, ss), :altitude => D2PI / 4.0 - zd};
-        return out;
-    }
-    // Synchronous compatibility wrapper retained for authoritative reference
-    // tests; production/UI callers must use begin(...) and step(state).
-    function calculate(rc,dc,pr,pd,px,rv,utc1,utc2,dut1,elong,phi,hm,xp,yp,phpa,tc,rh,wl){return atco13(rc,dc,pr,pd,px,rv,utc1,utc2,dut1,elong,phi,hm,xp,yp,phpa,tc,rh,wl);}
 }

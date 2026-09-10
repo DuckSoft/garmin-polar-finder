@@ -1,10 +1,12 @@
 # Polar Finder
 
-A Garmin Connect IQ watch app for polar alignment on the Forerunner 965. It
-acquires or edits an observing location, reviews atmospheric inputs, calculates
-observer-corrected Polaris alignment values, and presents a live dark-site display.
-The persisted Reticle selector offers the Generic numerical result or an iOptron
-SkyGuider Pro graphic with a live Polaris placement marker.
+A Garmin Connect IQ watch app for polar alignment on the Forerunner 255 family
+(`fr255`, `fr255s`, `fr255m`, and `fr255sm`) and Forerunner 965 (`fr965`).
+It acquires or edits an observing location, reviews atmospheric inputs,
+calculates observer-corrected Polaris alignment values, and presents a live
+dark-site display. The persisted Reticle selector offers the Generic numerical
+result, the full iOptron graphic, or the enlarged inner-only Sifo graphic. Both
+graphics retain live Polaris placement, clock/offset readouts, and warnings.
 
 ## Requirements
 
@@ -18,18 +20,25 @@ The Makefile reads the active SDK from `~/Library/Application Support/Garmin/Con
 ## Commands
 
 ```sh
-make lint    # check two-space formatting for every project XML file
-make build   # compile and sign for fr965
+make lint                       # check project XML formatting
+make build                      # compile DEVICE (fr965 by default)
+make DEVICE=fr255s build        # compile one selected profile
+make build-all                  # compile collision-free PRGs for all five devices
+make package                    # export one all-device PolarFinder.iq package
 make simulator
-make run     # launch in the running simulator
-make test    # compile and run SOFA vector tests in the simulator
+make DEVICE=fr255 run           # launch in the matching running simulator
+make DEVICE=fr255s test         # compile and run tests on one profile
+make test-profiles              # test representative 218, 260, and 454 profiles
 make clean
 ```
 
 `make simulator` starts Garmin's simulator. Run it before `make run` or
-`make test`. The Makefile reads the active SDK path and uses `fr965` by default.
-`make lint` needs no install step; `npx` runs the exactly pinned Prettier and XML plugin versions.
-The launcher PNG is regenerated from `artwork/launcher-icon.svg` automatically when the SVG changes.
+`make test`. Single-device builds, runs, and tests honor `DEVICE`; artifacts are
+device-qualified under `bin/`, so profiles do not overwrite one another.
+`make lint` needs no install step; `npx` runs the exactly pinned Prettier and
+XML plugin versions. Launcher PNGs are regenerated from
+`artwork/launcher-icon.svg` when it changes: 65×65 for the 965 and dithered
+40×40 family-qualified resources for the 64-color Forerunner 255 displays.
 
 ## Bundled Earth data
 

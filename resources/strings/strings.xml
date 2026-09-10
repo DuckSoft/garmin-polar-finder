@@ -19,6 +19,7 @@
   <string id="Reticle">Reticle</string>
   <string id="Generic">Generic</string>
   <string id="Ioptron">iOptron</string>
+  <string id="Sifo">Sifo</string>
   <string id="Atmosphere">Atmosphere</string>
   <string id="Calculate">Calculate</string>
   <string id="Help">Help</string>
@@ -131,8 +132,8 @@
     expiry.
   </string>
   <string id="HelpReticle">
-    Choose Generic for numerical results or iOptron for graphic alignment.
-    Place Polaris on the green marker.
+    Choose Generic for numbers, iOptron for the full graphic, or Sifo for the
+    inner-only graphic. Place Polaris on the green marker.
   </string>
   <string id="DiscardTitle">Discard changes?</string>
   <string id="Discard">Discard</string>
@@ -145,9 +146,7 @@
   <string id="StandardAtmosphere">Standard atmosphere</string>
   <string id="AstronomyFailed">Astronomical transformation failed</string>
   <string id="InvalidInputs">Location inputs are no longer valid</string>
-  <string id="ReticleRangeError">
-    Polaris is outside the iOptron reticle range
-  </string>
+  <string id="ReticleRangeError">Polaris is outside the reticle range</string>
   <string id="ReticleWarningLow">Low Polaris</string>
   <string id="ReticleWarningEarth">Data expires</string>
   <string id="ActiveWarning">Warning</string>

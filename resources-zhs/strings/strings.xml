@@ -19,6 +19,7 @@
   <string id="Reticle">极轴镜</string>
   <string id="Generic">通用</string>
   <string id="Ioptron">iOptron</string>
+  <string id="Sifo">一思佛</string>
   <string id="Atmosphere">大气设置</string>
   <string id="Calculate">计算</string>
   <string id="Help">帮助</string>
@@ -118,7 +119,7 @@
   <string id="HelpPole">极距为 90° 减观测赤纬。</string>
   <string id="HelpEarth">地球定向数据有固定有效期；到期后请更新应用。</string>
   <string id="HelpReticle">
-    通用模式显示数值结果；iOptron 模式显示图形校准。请将北极星置于绿色标记上。
+    通用模式显示数值；iOptron 显示完整图形；一思佛只显示内圈。请将北极星置于绿色标记上。
   </string>
   <string id="DiscardTitle">放弃更改？</string>
   <string id="Discard">放弃</string>
@@ -130,7 +131,7 @@
   <string id="StandardAtmosphere">标准大气估算</string>
   <string id="AstronomyFailed">天文转换失败</string>
   <string id="InvalidInputs">位置输入已失效</string>
-  <string id="ReticleRangeError">北极星超出 iOptron 极轴镜范围</string>
+  <string id="ReticleRangeError">北极星超出极轴镜范围</string>
   <string id="ReticleWarningLow">北极星低</string>
   <string id="ReticleWarningEarth">数据将到期</string>
   <string id="ActiveWarning">警告</string>

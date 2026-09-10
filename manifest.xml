@@ -9,6 +9,10 @@
     minApiLevel="5.2.0"
   >
     <iq:products>
+      <iq:product id="fr255" />
+      <iq:product id="fr255s" />
+      <iq:product id="fr255m" />
+      <iq:product id="fr255sm" />
       <iq:product id="fr965" />
     </iq:products>
     <iq:permissions>

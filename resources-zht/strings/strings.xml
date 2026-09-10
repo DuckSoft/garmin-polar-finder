@@ -19,6 +19,7 @@
   <string id="Reticle">極軸鏡</string>
   <string id="Generic">通用</string>
   <string id="Ioptron">iOptron</string>
+  <string id="Sifo">一思佛</string>
   <string id="Atmosphere">大氣設定</string>
   <string id="Calculate">計算</string>
   <string id="Help">說明</string>
@@ -120,7 +121,7 @@
     地球定向資料有固定有效期；到期後請更新應用程式。
   </string>
   <string id="HelpReticle">
-    通用模式顯示數值結果；iOptron 模式顯示圖形校準。請將北極星置於綠色標記上。
+    通用模式顯示數值；iOptron 顯示完整圖形；一思佛只顯示內圈。請將北極星置於綠色標記上。
   </string>
   <string id="DiscardTitle">放棄變更？</string>
   <string id="Discard">放棄</string>
@@ -132,7 +133,7 @@
   <string id="StandardAtmosphere">標準大氣估算</string>
   <string id="AstronomyFailed">天文轉換失敗</string>
   <string id="InvalidInputs">位置輸入已失效</string>
-  <string id="ReticleRangeError">北極星超出 iOptron 極軸鏡範圍</string>
+  <string id="ReticleRangeError">北極星超出極軸鏡範圍</string>
   <string id="ReticleWarningLow">北極星低</string>
   <string id="ReticleWarningEarth">資料將到期</string>
   <string id="ActiveWarning">警告</string>

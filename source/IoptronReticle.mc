@@ -3,13 +3,33 @@ import Toybox.Lang;
 
 const RETICLE_GENERIC = 0;
 const RETICLE_IOPTRON = 1;
+const RETICLE_SIFO = 2;
 
-const IOPTRON_CENTER = 227.0;
-const IOPTRON_R70 = 170.0;
 const IOPTRON_SIDEREAL_RATE = 1.0027379 * Math.PI / 43200.0;
 function normalizeReticleType(value) {
     if (!(value instanceof Lang.Number)) { return RETICLE_GENERIC; }
-    return (value == RETICLE_GENERIC || value == RETICLE_IOPTRON) ? value : RETICLE_GENERIC;
+    return (value == RETICLE_GENERIC || value == RETICLE_IOPTRON || value == RETICLE_SIFO)
+        ? value : RETICLE_GENERIC;
+}
+
+function reticleShowsOuterScale(value) {
+    return value == RETICLE_IOPTRON;
+}
+
+function reticleMaximumPoleDistance(value) {
+    return value == RETICLE_SIFO ? 44.0 : 70.0;
+}
+
+function reticleAngularRadius(value, screenReticleRadius) {
+    return value == RETICLE_SIFO
+        ? screenReticleRadius * 70.0 / 44.0
+        : screenReticleRadius;
+}
+
+function reticleValidPoleDistance(value, distanceArcmin) {
+    return ioptronFinite(distanceArcmin)
+        && distanceArcmin >= 0.0
+        && distanceArcmin <= reticleMaximumPoleDistance(value);
 }
 
 
@@ -63,17 +83,19 @@ function ioptronReticleClockSeconds(fullHourAngle) {
     return seconds;
 }
 
-function ioptronValidPoleDistance(distanceArcmin) {
-    return ioptronFinite(distanceArcmin) && distanceArcmin >= 0.0 && distanceArcmin <= 70.0;
-}
 
-function ioptronMarkerPosition(output, fullHourAngle, elapsedSeconds, poleDistanceArcmin) {
+function ioptronMarkerPosition(output, fullHourAngle, elapsedSeconds, poleDistanceArcmin,
+                               centerX, centerY, r70, maximumPoleDistance) {
     if (output == null || output.size() < 2 || !ioptronFinite(elapsedSeconds)
-        || !ioptronValidPoleDistance(poleDistanceArcmin)) { return false; }
+        || !ioptronFinite(centerX) || !ioptronFinite(centerY)
+        || !ioptronFinite(r70) || r70 <= 0.0
+        || !ioptronFinite(maximumPoleDistance) || maximumPoleDistance < 0.0
+        || !ioptronFinite(poleDistanceArcmin) || poleDistanceArcmin < 0.0
+        || poleDistanceArcmin > maximumPoleDistance) { return false; }
     var angle = ioptronNormalize2Pi(fullHourAngle + elapsedSeconds * IOPTRON_SIDEREAL_RATE);
     if (angle == null) { return false; }
-    var rho = ioptronRingRadius(poleDistanceArcmin, IOPTRON_R70);
-    output[0] = IOPTRON_CENTER + rho * Math.sin(angle);
-    output[1] = IOPTRON_CENTER + rho * Math.cos(angle);
+    var rho = ioptronRingRadius(poleDistanceArcmin, r70);
+    output[0] = centerX + rho * Math.sin(angle);
+    output[1] = centerY + rho * Math.cos(angle);
     return true;
 }

@@ -2,15 +2,19 @@
 
 ## Status
 
-Implemented baseline for the Polar Finder watch app. Automated tests cover the numerical and reticle geometry contracts; simulator appearance and physical-eyepiece alignment remain manual release checks.
+Implemented multi-device baseline for the Polar Finder watch app. Automated
+tests cover numerical, adaptive navigation, and parameterized reticle geometry
+contracts; simulator appearance and physical-eyepiece alignment remain manual
+release checks.
 
-Target:
+Targets:
 
-- Garmin Forerunner 965
-- Connect IQ API 5.2.0
-- 454×454 round AMOLED display
+- Forerunner 255 / 255 Music: 260×260 round, 64-color MIP, buttons
+- Forerunner 255s / 255s Music: 218×218 round, 64-color MIP, buttons
+- Forerunner 965: 454×454 round AMOLED, touch and buttons
+- Connect IQ API 5.2.0 on every target
 - English, Simplified Chinese, and Traditional Chinese
-- Complete touch and physical-button operation
+- Complete physical-button operation on every target
 
 ## Product flow
 
@@ -35,17 +39,22 @@ Locate/Review ──> Acquire GPS ──> Locate/Review
 
 ## Global interaction model
 
-The complete workflow must work with touch or physical buttons.
+The complete workflow must work with physical buttons on every target. The
+Forerunner 965 additionally supports touch; the Forerunner 255 family does not.
 
 Standard button behavior:
 
 - **Up/Down**: move focus or change the selected component.
 - **Start/Select**: open or confirm the focused action.
 - **Back**: cancel the current edit or move one navigation level upward.
+
+On the Forerunner 965:
+
 - **Tap**: select or confirm.
 - **Swipe/touch scrolling**: move through rows.
-
-On the result Display (Generic and iOptron), touch is wake-only and triggers no app action: taps and swipes are ignored. Actions still open with Start/Select, and Back still returns to Locate. Touch remains fully interactive on every other screen.
+- On the result Display (Generic, iOptron, and Sifo), touch is wake-only and triggers
+  no app action. Actions still open with Start/Select, and Back still returns to
+  Locate.
 
 Focused controls use more than color: a high-contrast outline, a slight background fill, and a shape or positional marker. No important state is communicated through color alone.
 
@@ -60,10 +69,12 @@ When confirmed location changes would otherwise be lost, Back asks whether to di
 
 ## Visual direction
 
-Calculate and both Display variants use a dark-site presentation:
+Calculate and all three Display variants use a dark-site presentation:
 
 - black background;
-- Generic keeps its existing dim-red primary-text styling; iOptron reticle geometry and numeral text use Garmin full red `0xFF0000`, relying on the watch's nighttime dimming;
+- Generic keeps its existing dim-red primary-text styling; iOptron and Sifo
+  reticle geometry use Garmin full red `0xFF0000`, relying on the watch's
+  nighttime dimming;
 - subdued gray secondary text;
 - warnings and focus states distinguishable without color alone;
 - no white full-screen flashes.
@@ -71,6 +82,13 @@ Calculate and both Display variants use a dark-site presentation:
 Each Display variant has a fixed layout. No burn-in mitigation movement is required.
 
 All screens and messages ship in English, Simplified Chinese, and Traditional Chinese. Layouts must accommodate the longest translation. Numerical notation and astronomical symbols may remain language-neutral.
+
+One shared view and input state machine serves all devices. `DisplayProfile` is
+cached from the drawing context during layout and supplies the display center,
+circular safe bounds, font-aware row pitch, content widths, footer, and reticle
+scale. Compact 218×218 and 260×260 profiles preserve content through scrolling
+rather than duplicating or removing flows. The 454×454 profile retains the
+roomier AMOLED presentation.
 
 ## Locate phase
 
@@ -88,7 +106,7 @@ Manual entry, GPS acquisition, and persisted locations converge on one canonical
 - Atmosphere row;
 - Calculate action.
 
-Reticle appears between Coordinate Format and Atmosphere. Up/Down or scrolling moves focus through the rows; Start/Select or tap opens the focused row's choices. Reticle offers **Generic** and **iOptron**. Committing a choice returns focus to the Reticle row, while Back from an uncommitted choice discards it and returns to that row.
+Reticle appears between Coordinate Format and Atmosphere. Up/Down or scrolling moves focus through the rows; Start/Select or tap opens the focused row's choices. Reticle offers **Generic**, **iOptron**, and **Sifo** (`一思佛` in both Chinese locales). Committing a choice returns focus to the Reticle row, while Back from an uncommitted choice discards it and returns to that row.
 
 The first launch starts with empty location fields. It must not present `0°, 0°` as though it were a valid default. A compact first-use explanation says that GPS or an entered observing location is needed to calculate Polaris alignment. It disappears after the first successful calculation and remains available through Help.
 
@@ -271,11 +289,12 @@ Retries are never automatic except for the defined restart after app interruptio
 The selected Reticle preference determines the fixed result layout:
 
 - **Generic** retains the current numerical Display unchanged: hour angle as the largest value, pole distance, local date and time, and compact location, provenance, or warning status.
-- **iOptron** uses its static reticle and live marker, with two compact knocked-out numeric readouts on opposite sides of the central crosshair: true polar-scope clock position above and pole offset below.
+- **iOptron** uses the full static reticle, including both tick bands and the 1–12 numerals, with a live marker and two compact knocked-out readouts.
+- **Sifo** uses the same shared graphic renderer but omits the complete outer 60–70 arcminute ring/tick band and all 1–12 numerals. Its angular scale expands so the retained 44′ circle occupies the same safe screen radius as iOptron's 70′ circle.
 
 The Generic numerical Display presents hour angle as `HH:MM:SS` modulo 12 hours, pole distance as `MM′ SS″`, and local time according to the watch's 12/24-hour preference. In 12-hour local-time mode, a localized AM/PM marker is shown. The Generic hour-angle text format is independent of the watch clock preference.
 
-The iOptron marker uses the full observed hour angle rather than the modulo-12 formatted text. Its upper readout reports the true polar-scope clock position, `normalize12(6 h − H / 2)`, corresponding to the marker direction; the lower readout presents fixed pole distance. Their geometry, optical transform, styling, and verification contract are defined in [iOptron SkyGuider Pro Reticle Display](ioptron-skyguider-pro-reticle.md).
+The iOptron and Sifo markers use the full observed hour angle rather than the modulo-12 formatted text. Their upper readout reports the true polar-scope clock position, `normalize12(6 h − H / 2)`, corresponding to the marker direction; the lower readout presents fixed pole distance. Their shared geometry, optical transform, styling, and verification contract are defined in [Equatorial Mount Reticle Displays](ioptron-skyguider-pro-reticle.md).
 
 Short localized labels take precedence over verbose headings on the Generic Display. Primary numerical values must not be shrunk merely to fit long labels.
 
@@ -284,7 +303,7 @@ Short localized labels take precedence over verbose headings on the Generic Disp
 While visible:
 
 - local time on the Generic Display updates once per second;
-- Generic hour-angle text and the iOptron marker advance from the authoritative calculation timestamp at the sidereal rate, approximately `1.0027379` hour-angle seconds per SI second;
+- Generic hour-angle text and both graphical markers advance from the authoritative calculation timestamp at the sidereal rate, approximately `1.0027379` hour-angle seconds per SI second;
 - pole distance remains fixed for the display session;
 - a periodic full recalculation re-anchors the result and prevents timer drift.
 
@@ -292,11 +311,11 @@ A system UTC discontinuity discards accumulated offsets and triggers recalculati
 
 When returning from an inactive state, the app does not briefly present stale values as current. It dims or marks them unavailable, performs a full recalculation, and restores them only when fresh.
 
-The app remains active while foregrounded, permits normal dimming, and restores normal power behavior when leaving Display. The iOptron reticle geometry is static; its marker and clock-position readout update once per second.
+The app remains active while foregrounded, permits normal dimming, and restores normal power behavior when leaving Display. Both graphical reticles are static; their marker and clock-position readout update once per second.
 
 ### Actions
 
-On either Display variant, START/Select opens the existing compact action menu. Touch (tap or swipe) on the Display is wake-only and triggers no app action:
+On any Display variant, START/Select opens the existing compact action menu. Touch (tap or swipe) on the Display is wake-only and triggers no app action:
 
 - Recalculate;
 - Location;
@@ -305,7 +324,7 @@ On either Display variant, START/Select opens the existing compact action menu. 
 
 There are no hidden per-value tap shortcuts. Back returns directly to the location review.
 
-On a valid iOptron result with an active warning, the graphic must render exactly one short overlay at the top, and the overlay must not cover the marker. The full warning and diagnostic explanation appears in Details. A pole distance outside the inclusive range `[0, 70]` arcminutes is an explicit calculation error: it is not clamped and no marker is shown. This range error uses the existing calculation-error actions—Back to location, Try again where applicable, and Details—rather than introducing another screen.
+On a valid iOptron or Sifo result with an active warning, the graphic must render exactly one short overlay at the top, and the overlay must not cover the marker. The full warning and diagnostic explanation appears in Details. Pole distance outside the selected reticle's inclusive range is an explicit calculation error: `[0, 70]` arcminutes for iOptron and `[0, 44]` for Sifo. It is not clamped, and no result or silently clipped marker is shown. This range error uses the existing calculation-error actions—Back to location, Try again where applicable, and Details—rather than introducing another screen.
 
 ## Astronomical output contract
 
@@ -313,8 +332,8 @@ The calculation ports the required SOFA `iauAtco13` transformations and uses a d
 
 Main results:
 
-- **Hour angle**: observer-corrected local apparent hour angle of Polaris. Generic displays it modulo 12 hours as `HH:MM:SS`; reticle marker mapping consumes the full observed angle, while the iOptron numeric readout converts it to true polar-scope clock position.
-- **Pole distance**: `90° − observed declination`, displayed as arcminutes and arcseconds on Generic and used as the radial input on iOptron.
+- **Hour angle**: observer-corrected local apparent hour angle of Polaris. Generic displays it modulo 12 hours as `HH:MM:SS`; graphical marker mapping consumes the full observed angle, while the upper readout converts it to true polar-scope clock position.
+- **Pole distance**: `90° − observed declination`, displayed as arcminutes and arcseconds on Generic and used as the radial input on iOptron and Sifo.
 
 The main screen uses concise user-facing labels. Details names the precise reference frames and transformation outputs so pole distance is not confused with catalog polar distance.
 
@@ -373,6 +392,6 @@ Contextual Help explains:
 - Generic hour-angle text modulo 12;
 - pole distance;
 - Earth-data expiry;
-- Reticle selection and iOptron graphic guidance.
+- Reticle selection and iOptron/Sifo graphic guidance.
 
 Implementation-level SOFA documentation does not appear in the primary help flow.

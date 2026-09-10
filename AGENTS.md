@@ -2,34 +2,42 @@
 
 ## Scope
 
-This repository contains a Garmin Connect IQ watch app targeting only the Forerunner 965 (`fr965`) with API level 5.2.0.
+This repository contains a Garmin Connect IQ watch app targeting the Forerunner 255 family (`fr255`, `fr255s`, `fr255m`, and `fr255sm`) and Forerunner 965 (`fr965`) with API level 5.2.0.
 
 ## Architecture
 
 - `manifest.xml`: application identity, device, language, and permission declarations.
-- `source/`: Monkey C application and view code.
-- `resources/`: shared layouts, strings, and generated launcher resources.
+- `source/`: shared Monkey C application, adaptive display profile, model, and view code.
+- `tests/`: test-only Monkey C sources selected through `test.jungle`.
+- `resources/`: shared strings and generated 65×65 launcher resources.
+- `resources-round-218x218/` and `resources-round-260x260/`: generated, dithered 40×40 launcher overrides for the 64-color Forerunner 255 displays.
 - `resources-zhs/` and `resources-zht/`: Chinese string overrides.
 - `artwork/`: editable vector artwork. Do not hand-edit generated PNGs.
-- `Makefile`: canonical build, simulator, run, and clean interface.
+- `Makefile`: canonical single-device, all-device, package, simulator, run, and test interface.
 
 ## Development rules
 
 - Use the CLI workflow; do not add VS Code or Eclipse project metadata.
-- Keep the app compatible with the Forerunner 965 runtime. Do not use APIs introduced after 5.2.0.
+- Keep the app compatible with all five declared products. Do not use APIs introduced after 5.2.0.
 - Keep signing keys outside the repository. Never commit PEM or DER files.
 - Add permissions only when required by an agreed feature. `Positioning` is reserved for the planned GPS-based celestial-time calculation.
 - Keep English, Simplified Chinese, and Traditional Chinese strings synchronized.
-- Regenerate `resources/drawables/launcher_icon.png` from `artwork/launcher-icon.svg` with `make build`; ImageMagick performs the conversion.
+- Regenerate launcher PNGs from `artwork/launcher-icon.svg` with `make build`; ImageMagick produces the 65×65 AMOLED resource and family-qualified dithered 40×40 MIP resources.
 
 ## Verification
 
 Do not set `JAVA_TOOL_OPTIONS` when running any `make` command.
 
-- `make test`: run tests; allow at most a one-minute timeout.
-- `make build`: compile and sign the app; allow at most a one-minute timeout.
+- `make lint`: check XML with the pinned formatter.
+- `make test`: run tests for `DEVICE`; allow at most a one-minute timeout.
+- `make test-profiles`: run tests for representative 218×218, 260×260, and 454×454 profiles.
+- `make build`: compile and sign the app for `DEVICE`; allow at most a one-minute timeout.
+- `make build-all`: compile collision-free artifacts for all five devices.
+- `make package`: export one all-device `.iq` package.
 - `make simulator`: start Garmin's simulator; allow at most a one-minute timeout.
-- `make run`: build and launch in an already-running simulator.
+- `make run`: build and launch `DEVICE` in an already-running matching simulator.
 - `make clean`: remove generated compiler output.
 
-For UI changes, launch the actual app in the `fr965` simulator and inspect the 454×454 round display.
+For UI changes, inspect 218×218 (`fr255s`/`fr255sm`), 260×260
+(`fr255`/`fr255m`), and 454×454 (`fr965`) round displays. Exercise every flow
+with buttons; additionally inspect touch behavior on `fr965`.

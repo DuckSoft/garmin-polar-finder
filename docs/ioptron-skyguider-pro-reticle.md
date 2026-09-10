@@ -1,14 +1,19 @@
-# iOptron SkyGuider Pro Reticle Display
+# Equatorial Mount Reticle Displays
 
 ## Status and scope
 
-Implemented in the Forerunner 965 app. Automated geometry and marker tests and the application build pass; simulator and physical-eyepiece visual verification remain manual release checks.
+Implemented on all five supported device profiles. Automated geometry, persistence,
+marker, multi-profile test, build, and package checks pass; physical-eyepiece
+visual verification remains a manual release check.
 
-The variant adds a static reticle and a live Polaris marker to the existing result flow. It does not change the Generic numerical Display, the astronomical calculation model, location entry, atmosphere handling, or the existing Actions and Details destinations. It does not add a brightness setting or attempt to model arbitrary polar-scope reticles.
+The iOptron and Sifo variants add a static reticle and live Polaris marker to
+the existing result flow. They do not change the Generic numerical Display,
+astronomical calculation model, location entry, atmosphere handling, Actions,
+or Details destinations.
 
 ## Display geometry
 
-The design coordinate system is the Forerunner 965's `454×454` display, with center
+The reference coordinate system is the Forerunner 965's `454×454` display, with center
 
 ```text
 (cx, cy) = (227, 227)
@@ -21,7 +26,23 @@ Screen `x` increases rightward and screen `y` increases downward. For a circle r
 r(theta) = R70 * theta / 70
 ```
 
-The exact circles and their nominal pixel radii are:
+The iOptron variant uses `R70` equal to the active profile's screen-reticle
+radius and renders every circle in the table, both tick bands, and upright
+numerals 1–12.
+
+Sifo renders the 4, 36, 40, and 44 arcminute circles, central crosshair, and
+36–44 arcminute tick band. It omits the entire 60–70 arcminute ring/tick band
+and all 1–12 numerals. Its angular scale is enlarged:
+
+```text
+Sifo R70 = screenReticleRadius * 70 / 44
+```
+
+Consequently Sifo's retained 44′ circle has exactly the same safe screen radius
+as iOptron's 70′ circle. On the 454×454 reference profile, Sifo's 4′, 36′, 40′,
+and 44′ radii are approximately 15.45, 139.09, 154.55, and 170 px.
+
+The exact iOptron circles and their nominal pixel radii are:
 
 | `theta` (arcmin) | Radius equation | Radius (px, approximate) |
 | ---: | --- | ---: |
@@ -119,27 +140,42 @@ The design intentionally provides no app-specific brightness control. It relies 
 
 ## Menu, persistence, and navigation
 
-Locate adds a persisted **Reticle** row between **Coordinate Format** and **Atmosphere**. Its options are:
+Locate adds a persisted **Reticle** row between **Coordinate Format** and
+**Atmosphere**. Its options and stable stored values are:
 
-- Generic;
-- iOptron.
+- Generic (`0`);
+- iOptron (`1`);
+- Sifo / 一思佛 (`2`).
 
-Generic is the fresh-install default. A missing stored preference also resolves to Generic, so an upgrade from a version without this setting preserves the current numerical Display. Only a confirmed preference is persisted; an open selection or transient focus state is not.
+Values `0` and `1` retain their existing meanings. Generic is the fresh-install
+default. A missing or unrecognized stored preference resolves to Generic. Only
+a confirmed preference is persisted; an open selection or transient focus state
+is not.
 
 The selected option determines the Display variant after a successful calculation:
 
 - **Generic** keeps the existing numerical result unchanged.
-- **iOptron** shows the graphic reticle and live marker, plus the compact upper clock-position and lower pole-offset readouts.
+- **iOptron** shows the complete graphic reticle, live marker, and compact upper
+  clock-position and lower pole-offset readouts.
+- **Sifo** uses that same renderer but suppresses the outer scale and numerals,
+  and enlarges the retained angular geometry so 44′ reaches the profile's
+  screen-reticle radius. Marker, readouts, warnings, and calculations otherwise
+  remain shared.
 
-On the iOptron Display, START/Select opens the existing Actions menu; touch (tap or swipe) is wake-only and triggers no app action. BACK returns directly to Locate, matching the Generic Display. Returning from Actions restores the same Display variant under the existing result-freshness rules.
+On either graphical Display, START/Select opens the existing Actions menu; touch
+(tap or swipe) is wake-only and triggers no app action. BACK returns directly to
+Locate, matching Generic. Returning from Actions restores the selected Display
+variant under the existing result-freshness rules.
 
 ## State and lifecycle
 
-The reticle selection belongs to confirmed preferences, not to a calculation result. Relaunch returns to Locate with the persisted selection, while a missing selection resolves to Generic.
+The reticle selection belongs to confirmed preferences, not to a calculation
+result. Relaunch returns to Locate with the persisted selection, while a missing
+or invalid selection resolves to Generic.
 
-The iOptron Display follows the existing Display lifecycle contract:
+Both graphical Displays follow the existing Display lifecycle contract:
 
-- its marker updates once per second from the authoritative calculation timestamp;
+- their markers update once per second from the authoritative calculation timestamp;
 - periodic full recalculation re-anchors the result;
 - UTC discontinuity triggers recalculation;
 - inactive/resume handling must not briefly show stale guidance;
@@ -150,32 +186,34 @@ When calculation or freshness state does not permit a valid result, the app does
 ## Warnings, errors, and Details
 On a valid graphical result with an active warning, the app must render exactly one short overlay at the top. It must not cover the marker or become a persistent text panel. Full warning wording, explanation, and diagnostics belong in Details.
 
-The existing Actions menu remains the route to Details. Location visibility, pressure fallback, and Earth-data-expiry warnings retain their existing semantics. Pole distance outside `[0, 70]` arcminutes is a calculation error rather than a warning; no reticle result or marker is shown. This range error uses the existing calculation-error actions—Back to location, Try again where applicable, and Details—rather than introducing another screen.
+The existing Actions menu remains the route to Details. Location visibility, pressure fallback, and Earth-data-expiry warnings retain their existing semantics. Pole distance outside the selected reticle's range is a calculation error rather than a warning: iOptron accepts `[0, 70]` arcminutes and Sifo accepts `[0, 44]`. No reticle result is drawn and the marker is never silently clipped. The error uses the existing calculation-error actions—Back to location, Try again where applicable, and Details—rather than introducing another screen.
 
 ## Accessibility and localization
 
 Reticle geometry is language-neutral. The combination of marker shape, black halo, contrast, and position prevents color from being the sole indicator. Focus remains in the Actions and Locate controls rather than on decorative reticle elements.
 
-The **Reticle**, **Generic**, and **iOptron** menu strings, short warning overlay, error text, Details explanations, and Help content are synchronized in English, Simplified Chinese, and Traditional Chinese.
+The **Reticle**, **Generic**, **iOptron**, and **Sifo** menu strings, short warning overlay, error text, Details explanations, and Help content are synchronized in English, Simplified Chinese, and Traditional Chinese. Sifo is `一思佛` in both Chinese locales.
 
 ## Edge cases
 
 - Exactly `0` or `70` arcminutes is valid and follows the same mapping equation.
 - A non-finite hour angle, pole distance, timestamp, or elapsed-time input is a calculation error; no marker is drawn.
 - Hour-angle wrap uses `normalize2pi`, preserving a continuous path across 24 h.
-- The marker may overlap reticle strokes or numerals; the black halo preserves its boundary.
+- The marker may overlap retained reticle strokes; on iOptron it may also overlap numerals. The black halo preserves its boundary.
 - A warning and marker may coexist only when the underlying result remains valid.
 - If current data becomes stale or invalid while visible, guidance is withheld until recalculation produces a fresh valid result.
 
 ## Acceptance criteria
 
-- Locate presents Reticle between Coordinate Format and Atmosphere, with Generic and iOptron options.
-- Generic is used for fresh installs and whenever the preference is absent, including upgrades; its numerical Display is unchanged.
-- iOptron presents the specified static graphic, live marker, and compact knocked-out upper clock-position/lower pole-offset readouts.
-- The display uses the specified center, radii, circles, crosshair, two tick annuli, 36-direction classes, and twelve upright numerals.
-- Reticle strokes and text use Garmin full red `0xFF0000`; the marker has an 8 px black halo and 6 px high-brightness Garmin green fill.
+- Locate presents Reticle between Coordinate Format and Atmosphere, with Generic, iOptron, and Sifo options.
+- Stable persisted values remain Generic `0`, iOptron `1`, and Sifo `2`; missing or invalid preferences resolve to Generic.
+- Generic retains its numerical Display unchanged.
+- iOptron presents the complete specified graphic, live marker, and upper/lower readouts.
+- Sifo is rendered by the same shared path, omits the complete outer 60–70 arcminute ring/tick band and all 1–12 numerals, and scales its retained 44′ circle to iOptron's 70′ screen radius.
+- Both graphics share center, retained circle definitions, crosshair, inner tick classes, marker mapping, readouts, warnings, and calculations.
+- iOptron accepts pole distances through 70′; Sifo accepts exactly through 44′. Values just above the selected maximum produce the existing range error without clamping, drawing, or a clipped marker.
+- Reticle strokes and text use Garmin full red `0xFF0000`; the marker has a black halo and high-brightness Garmin green fill scaled for the active display profile.
 - The marker uses full observed hour angle and the stated sidereal update and mapping equations, updating once per second.
-- Out-of-range pole distance produces a calculation error without clamping or a marker.
 - START/Select opens the existing Actions menu, touch is wake-only with no app action, and BACK returns to Locate.
 - A valid result with an active warning renders exactly one short top overlay that does not cover the marker; Details contains the full explanation.
 - The result remains readable by shape, position, and contrast without relying on color alone.
