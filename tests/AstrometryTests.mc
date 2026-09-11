@@ -136,8 +136,12 @@ function properMotionConversionDividesOutCosDec(logger as Test.Logger) {
     var naive = pmRaStarMasYr * Astrometry.MAS2RAD_D;
     // Independent check with a round, non-Polaris declination and a
     // hand-computed expected value, so this isn't just re-deriving the same
-    // expression the helper itself uses.
-    var independentDec = Math.PI.toDouble() / 3.0d;
+    // expression the helper itself uses. Uses a genuine Double pi literal:
+    // Math.PI is Float-precision, and .toDouble() cannot recover digits it
+    // never had, which would otherwise inject a ~2.16e-14 rad/yr error into
+    // this specific high-precision comparison (tolerance 1e-18).
+    var piD = 3.1415926535897932384626433832795d;
+    var independentDec = piD / 3.0d;
     var independentExpected = 4.2876921957327345e-7d;
     var independentActual = Astrometry.properMotionPrRadYr(pmRaStarMasYr, independentDec);
     return withinTolerance(actual, expected, 1.0e-18d)
@@ -293,6 +297,7 @@ function buildSyntheticAnchor(vacuumPoleDistanceRad, phiRad, xp, yp, phpa, tc, r
 function shortTimePropagationMatchesExactRotationGrid(logger as Test.Logger) {
     var deg = Math.PI.toDouble() / 180.0d;
     var arcsec = Math.PI.toDouble() / (180.0d * 3600.0d);
+    var budgetArcsec = 0.1d;
     var vacuumPoleDistance = 37.7d / 60.0d * deg;
     var latitudesDeg = [20.0d, 40.0d, 60.0d];
     var hourAnglesDeg = [0.0d, 45.0d, 90.0d, 135.0d, 180.0d, 225.0d, 270.0d, 315.0d];
@@ -319,13 +324,27 @@ function shortTimePropagationMatchesExactRotationGrid(logger as Test.Logger) {
                         var sPred = reticlePredictedVector(anchor, t);
                         var sRef = independentSiderealRateVector(anchor, t);
                         var errArcsec = angularSeparationArcsec(sPred, sRef);
+                        // Per-case validity/budget guard: a plain running-max
+                        // comparison (errArcsec > worst) silently lets a NaN
+                        // or infinite case slip through unnoticed (NaN
+                        // comparisons are always false), which could still
+                        // leave "worst" looking fine. Every case must itself
+                        // be a finite, non-negative value under budget.
+                        if (!(errArcsec >= 0.0d && errArcsec < budgetArcsec)) {
+                            logger.debug("propagation grid case failed: lat=" + latitudesDeg[li]
+                                + " xp=" + xp + " yp=" + yp + " phpa=" + phpa
+                                + " h0deg=" + hourAnglesDeg[hi] + " t=" + t
+                                + " errArcsec=" + errArcsec);
+                            return false;
+                        }
                         if (errArcsec > worst) { worst = errArcsec; }
                     }
                 }
             }
         }
     }
-    return worst < 0.1d;
+    logger.debug("propagation grid worst case errArcsec=" + worst);
+    return worst < budgetArcsec;
 }
 
 // Item 6 (end-to-end coverage): using the application's actual Polaris
@@ -338,6 +357,7 @@ function shortTimePropagationMatchesExactRotationGrid(logger as Test.Logger) {
 (:test)
 function endToEndPolarisPropagationMatchesFullRecompute(logger as Test.Logger) {
     var pi = 3.1415926535897932384626433832795d;
+    var budgetArcsec = 0.1d;
     var rc = (2.0d + 31.0d / 60.0d + 49.09d / 3600.0d) * 15.0d * pi / 180.0d;
     var dc = (89.0d + 15.0d / 60.0d + 50.8d / 3600.0d) * pi / 180.0d;
     var pr = Astrometry.properMotionPrRadYr(44.22d, dc);
@@ -365,9 +385,17 @@ function endToEndPolarisPropagationMatchesFullRecompute(logger as Test.Logger) {
         var laterBasis = Astrometry.poleTangentBasis(laterPole);
         var sRef = localFrameToVector(laterPole, laterBasis[0], laterBasis[1], laterResult[:reticleX], laterResult[:reticleY]);
         var errArcsec = angularSeparationArcsec(sPred, sRef);
+        // Same per-case validity/budget guard as the grid test above: reject
+        // NaN/negative/over-budget cases individually instead of relying on
+        // a running maximum that a NaN comparison could silently bypass.
+        if (!(errArcsec >= 0.0d && errArcsec < budgetArcsec)) {
+            logger.debug("end-to-end propagation case failed: t=" + t + " errArcsec=" + errArcsec);
+            return false;
+        }
         if (errArcsec > worst) { worst = errArcsec; }
     }
-    return worst < 0.1d;
+    logger.debug("end-to-end propagation worst case errArcsec=" + worst);
+    return worst < budgetArcsec;
 }
 
 (:test)
