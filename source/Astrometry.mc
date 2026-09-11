@@ -2280,9 +2280,25 @@ module Astrometry {
     // SOFA-style pr argument consumed by pmpx()/atciq() wants the raw
     // coordinate rate d(alpha)/dt ("prRadYr", rad/yr). The cos(dec) factor
     // must be divided back out before converting units; this is not a fixed
-    // constant because it depends on the star's own declination.
+    // constant because it depends on the star's own declination. For Polaris
+    // (dec ~ 89.264 deg = 89 15' 50.8", cos(dec) ~ 0.012843), this is roughly
+    // a 78-fold correction to the RA *coordinate rate*, not a claim that
+    // Polaris' physical tangential proper motion itself is 78x larger:
+    // multiplying prRadYr back by cos(dec) recovers the catalog's
+    // pmRaStarMasYr.
+    //
+    // MAS2RAD_D is a dedicated Double-precision milliarcsec->radian factor
+    // for this specific high-precision conversion path. It is deliberately
+    // NOT expressed via the shared module-level DAS2R constant used
+    // throughout the rest of this SOFA port, because DAS2R (and most other
+    // scalar constants in this file) are plain Monkey C float literals
+    // (32-bit, ~7 significant digits); reusing DAS2R here would silently
+    // reintroduce Float-level rounding into an otherwise Double-precision
+    // computation. This does not change DAS2R itself or any other table in
+    // the port.
+    var MAS2RAD_D = 4.84813681109535993589914102358e-9d;
     function properMotionPrRadYr(pmRaStarMasYr, decRad) {
-        var pmRaStarRadYr = pmRaStarMasYr * 1.0e-3 * DAS2R;
+        var pmRaStarRadYr = pmRaStarMasYr * MAS2RAD_D;
         return pmRaStarRadYr / Math.cos(decRad);
     }
 
@@ -2318,18 +2334,17 @@ module Astrometry {
 
     // The mount's mechanical RA axis targets the geometric Earth rotation
     // axis (the Celestial Intermediate Pole), not an incoming light ray, so
-    // it must never be refracted. In the CIRS frame the CIP is trivially
-    // [0,0,1] (dec=+90 regardless of RA), so its local horizon direction is
-    // obtained by running that trivial vector through the SAME polar-motion
-    // geometry used for Polaris above, but with refa=refb=0. The result does
-    // not depend on Earth rotation angle or on Polaris's own position, only
-    // on polar motion (xp,yp) and geodetic latitude, so it stays valid
+    // it must never be refracted, aberrated, or otherwise treated as an
+    // incoming light ray. In the CIRS frame the CIP is trivially [0,0,1]
+    // (dec=+90 regardless of RA), so its local horizon direction is obtained
+    // by running that trivial vector through the SAME polar-motion geometry
+    // used for Polaris above, but purely as a geometric rotation -- there is
+    // no refa/refb/diurab argument to accidentally misuse here. The result
+    // does not depend on Earth rotation angle or on Polaris's own position,
+    // only on polar motion (xp,yp) and geodetic latitude, so it stays valid
     // without recomputation for as long as the anchor is valid.
-    function geometricPoleLocalVector(xpl, ypl, sphi, cphi, diurab) {
-        var xhd = xpl; var yhd = -ypl; var zhd = 1.0;
-        var ff0 = 1.0 - diurab * yhd;
-        var xhdt = ff0 * xhd; var yhdt = ff0 * (yhd + diurab); var zhdt = ff0 * zhd;
-        var xaet = sphi * xhdt - cphi * zhdt; var yaet = yhdt; var zaet = cphi * xhdt + sphi * zhdt;
+    function geometricPoleLocalVector(xpl, ypl, sphi, cphi) {
+        var xaet = sphi * xpl - cphi; var yaet = -ypl; var zaet = cphi * xpl + sphi;
         return normalize3([xaet, yaet, zaet]);
     }
 
@@ -2585,6 +2600,12 @@ module Astrometry {
             var pmt = ((state[:tt0] - DJ00) + state[:tt1]) / DJY; var dpv = [0.0d, 0.0d, 0.0d]; var dvv = [0.0d, 0.0d, 0.0d]; var pb = [0.0d, 0.0d, 0.0d]; var vb = [0.0d, 0.0d, 0.0d]; var ph = [0.0d, 0.0d, 0.0d]; var v2 = 0.0d; var i = 0;
             for (i = 0; i < 3; i += 1) { dpv[i] = pv[0][i] / DAU; dvv[i] = pv[1][i] / AUDMS; pb[i] = ebpv[0][i] + dpv[i]; vb[i] = ebpv[1][i] + dvv[i]; ph[i] = ehpv[i] + dpv[i]; }
             var emn = pn(ph); var vv = [0.0d, 0.0d, 0.0d]; var k = 0; for (k = 0; k < 3; k += 1) { vv[k] = vb[k] * CR; v2 += vv[k] * vv[k]; }
+            // diurab is the SOFA "diurnal aberration" term; production always
+            // passes 0.0 because observer velocity is already carried in
+            // ast[:v] (the barycentric/heliocentric velocity used by
+            // aberration() above) via the full Apco-style chain -- it is not
+            // a free knob the pole/ray helpers below are allowed to enable a
+            // second time.
             var xpl = a[12] * cl - a[13] * sl; var ypl = a[12] * sl + a[13] * cl; var sphi = Math.sin(a[10]); var cphi = Math.cos(a[10]); var diurab = 0.0;
             var ast = {:pmt => pmt, :eb => pb, :eh => [emn[1], emn[2], emn[3]], :em => emn[0], :v => vv, :bm1 => Math.sqrt(1.0 - v2), :bpn => c2ixys(x, y, ss), :eral => theta + along, :xpl => xpl, :ypl => ypl, :sphi => sphi, :cphi => cphi, :diurab => diurab, :refa => ref[0], :refb => ref[1]};
             var pco = pmpx(a[0], a[1], a[2], a[3], a[4], a[5], ast[:pmt], ast[:eb]); var pnat = ldsun(pco, ast[:eh], ast[:em]); var ppr = aberration(pnat, ast[:v], ast[:em], ast[:bm1]); var pi = rxp(ast[:bpn], ppr); var cs = c2s(pi); var ri = anp(cs[0]); var di = cs[1];
@@ -2599,56 +2620,100 @@ module Astrometry {
 
             // Geometric pole: the mechanical direction the mount's RA axis
             // should point at. Built from the same polar-motion/latitude
-            // geometry, but never refracted.
-            var poleVec = geometricPoleLocalVector(xpl, ypl, sphi, cphi, diurab);
+            // geometry, but never refracted, aberrated, or otherwise treated
+            // as a light ray (geometricPoleLocalVector takes no diurab/refa/
+            // refb argument at all, so there is nothing here to disable).
+            var poleVec = geometricPoleLocalVector(xpl, ypl, sphi, cphi);
             var basis = poleTangentBasis(poleVec); var uVec = basis[0]; var vVec = basis[1];
             var sVec0 = normalize3([xaeo0, yaeo0, zaeo0]);
             var xy0 = poleTangentXY(sVec0, poleVec, uVec, vVec); var x0 = xy0[0]; var y0 = xy0[1];
 
-            // Cheap short-time slope for the tangent-plane reticle position:
-            // over tens of seconds only the Earth rotation angle (eral)
-            // meaningfully changes; the pole, its tangent basis, and
-            // Polaris's CIRS direction (ri,di) do not need to be
-            // recomputed from scratch, so this avoids re-running the full
-            // resumable EPV/nutation/S06 chain just to get a slope.
-            var dtSlope = 60.0;
-            var theta1 = era00(state[:ut1][1], state[:ut1][2] + dtSlope / DAYSEC);
-            var eral1 = theta1 + along;
-            var ray1 = localHorizonRay(ri, di, eral1, xpl, ypl, sphi, cphi, diurab, ast[:refa], ast[:refb]);
-            var sVec1 = normalize3([ray1[3], ray1[4], ray1[5]]);
-            var xy1 = poleTangentXY(sVec1, poleVec, uVec, vVec);
-            var dxdt = (xy1[0] - x0) / dtSlope; var dydt = (xy1[1] - y0) / dtSlope;
-            var rho0 = Math.atan(Math.sqrt(x0 * x0 + y0 * y0));
-            var rho1 = Math.atan(Math.sqrt(xy1[0] * xy1[0] + xy1[1] * xy1[1]));
-            var rhoRate = (rho1 - rho0) / dtSlope;
+            // Frozen anchor context for cheap, exact-geometry per-tick reticle
+            // reevaluation (see reticleAt()). Only the expensive parts of this
+            // calculation (EPV ephemeris series, IAU2000A nutation, s06 CIO
+            // locator, light-time/deflection/aberration) are retired here;
+            // everything below is reused unchanged by every display tick until
+            // the next anchor, and only Earth Rotation Angle is recomputed
+            // from a fresh timestamp.
+            //
+            // Approximations intentionally frozen for the life of the anchor
+            // (documented per-field, all sub-arcsecond over a ~15 minute
+            // window): UT1-UTC (dut1) is baked into ut1a/ut1b already and not
+            // re-fetched from the EOP table (which is itself only tabulated
+            // once per day); the "along" (site longitude + TIO locator sp)
+            // and polar-motion-tilted xpl/ypl are refrozen (sp drifts by
+            // microarcseconds/century); refa/refb (refraction coefficients)
+            // are refrozen (they depend on pressure/temperature/humidity, not
+            // on the clock); and the CIRS direction (ri,di) of Polaris itself
+            // is refrozen (proper motion/parallax/aberration change on
+            // hour/day timescales, not seconds).
+            var anchor = {
+                :ri => ri, :di => di,
+                :ut1a => state[:ut1][1], :ut1b => state[:ut1][2],
+                :along => along,
+                :xpl => xpl, :ypl => ypl, :sphi => sphi, :cphi => cphi,
+                :refa => ast[:refa], :refb => ast[:refb],
+                :polePx => poleVec[0], :polePy => poleVec[1], :polePz => poleVec[2],
+                :uX => uVec[0], :uY => uVec[1], :uZ => uVec[2],
+                :vX => vVec[0], :vY => vVec[1], :vZ => vVec[2]
+            };
 
             var result = {
                 :status => 0, :aob => anp(ray0[6]), :zob => ray0[7], :hob => -hcs0[0], :dob => hcs0[1],
                 :rob => anp(raobs0), :eo => eors(state[:rnpb], ss), :altitude => D2PI / 4.0 - ray0[7],
                 // Raw gnomonic tangent-plane coordinates of Polaris' observed
-                // ray relative to the geometric pole (X0,Y0) at anchor time,
-                // plus their short-time slope (dXdt,dYdt) from a cheap +60s
-                // Earth-rotation-only recompute.
-                :reticleX => x0, :reticleY => y0, :reticleDXDt => dxdt, :reticleDYDt => dydt,
-                // Equivalent hour-angle/pole-distance pair (matches the old
-                // hob/(pi/2-dob) convention when polar motion and refraction
-                // are both negligible). The hour-angle-like term rotates at
-                // the exact sidereal rate (Earth rotation angle grows
-                // perfectly linearly with UT1 by definition, so re-deriving
-                // it from a finite difference would only add noise), while
-                // reticlePoleDistanceRate captures the small, previously
-                // ignored short-time radius drift (mostly differential
-                // refraction) instead of assuming a fixed radius forever.
-                :reticleHourAngle => Math.atan2(-x0, y0), :reticlePoleDistance => rho0,
-                :reticlePoleDistanceRate => rhoRate,
+                // ray relative to the geometric pole (X0,Y0), and the
+                // equivalent hour-angle/pole-distance pair, both at anchor
+                // time (elapsed=0). Matches the old hob/(pi/2-dob) convention
+                // when polar motion and refraction are both negligible.
+                // Between-anchor propagation is done by calling reticleAt()
+                // with :reticleAnchor and an elapsed-seconds offset -- there
+                // is no separate constant-rate model to keep in sync.
+                :reticleX => x0, :reticleY => y0,
+                :reticleHourAngle => Math.atan2(-x0, y0), :reticlePoleDistance => Math.atan(Math.sqrt(x0 * x0 + y0 * y0)),
                 // Geometric pole local unit vector, exposed so tests can
                 // confirm it shifts with polar motion (xp,yp) and is
                 // completely unaffected by atmospheric refraction.
-                :polePx => poleVec[0], :polePy => poleVec[1], :polePz => poleVec[2]
+                :polePx => poleVec[0], :polePy => poleVec[1], :polePz => poleVec[2],
+                :reticleAnchor => anchor
             };
             state[:stage] = -1; state[:progress] = 1.0; state[:result] = result; return resumableReply(state, true, result);
         }
         return resumableReply(state, true, state[:result]);
     }
 
+    // Cheap between-anchor reevaluation of the reticle solution at
+    // anchor-time + elapsedSeconds. Reuses every expensive quantity from the
+    // anchor (CIRS direction, polar-motion geometry, refraction coefficients,
+    // geometric pole and tangent basis) and only recomputes the Earth
+    // Rotation Angle (era00 is an O(1) polynomial, not a series) for the new
+    // UT1 timestamp. This preserves the exact (non-linear) relationship
+    // between Earth rotation and the refracted ray's position around the
+    // geometric pole, instead of assuming either a constant pole distance or
+    // a constant angular rate.
+    //
+    // elapsedSeconds is treated as elapsed UT1 (dut1 is frozen at the anchor
+    // value); UT1-UTC drifts by at most a few milliseconds per day, so this
+    // is negligible over the ~15 minute anchor lifetime.
+    function reticleAt(anchor, elapsedSeconds) {
+        var eral = era00(anchor[:ut1a], anchor[:ut1b] + elapsedSeconds / DAYSEC) + anchor[:along];
+        var ray = localHorizonRay(anchor[:ri], anchor[:di], eral,
+            anchor[:xpl], anchor[:ypl], anchor[:sphi], anchor[:cphi], 0.0,
+            anchor[:refa], anchor[:refb]);
+        var xaeo = ray[3]; var yaeo = ray[4]; var zaeo = ray[5];
+        var norm = Math.sqrt(xaeo * xaeo + yaeo * yaeo + zaeo * zaeo);
+        if (norm == 0.0) { norm = 1.0e-12; }
+        var sx = xaeo / norm; var sy = yaeo / norm; var sz = zaeo / norm;
+        var spDot = sx * anchor[:polePx] + sy * anchor[:polePy] + sz * anchor[:polePz];
+        if (spDot == 0.0) { spDot = 1.0e-12; }
+        var xVal = (sx * anchor[:vX] + sy * anchor[:vY] + sz * anchor[:vZ]) / spDot;
+        var yVal = (sx * anchor[:uX] + sy * anchor[:uY] + sz * anchor[:uZ]) / spDot;
+        return {
+            :hourAngle => Math.atan2(-xVal, yVal), :poleDistance => Math.atan(Math.sqrt(xVal * xVal + yVal * yVal)),
+            :x => xVal, :y => yVal,
+            :aob => anp(ray[6]), :zob => ray[7], :altitude => D2PI / 4.0 - ray[7]
+        };
+    }
+
 }
+

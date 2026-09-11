@@ -126,13 +126,23 @@ function astrometryRejectsOutOfRangeUtc(logger as Test.Logger) {
 function properMotionConversionDividesOutCosDec(logger as Test.Logger) {
     var pmRaStarMasYr = 44.22d;
     var decRad = (89.0d + 15.0d / 60.0d + 50.8d / 3600.0d) * Math.PI.toDouble() / 180.0d;
-    var expected = (pmRaStarMasYr * 1.0e-3d * Astrometry.DAS2R) / Math.cos(decRad);
+    var expected = (pmRaStarMasYr * Astrometry.MAS2RAD_D) / Math.cos(decRad);
     var actual = Astrometry.properMotionPrRadYr(pmRaStarMasYr, decRad);
-    // At Polaris' declination cos(dec) ~ 0.213, so naively skipping the
-    // division would understate |pr| by nearly a factor of five.
-    var naive = pmRaStarMasYr * 1.0e-3d * Astrometry.DAS2R;
+    // At Polaris' declination cos(dec) ~ 0.012843 (1/cos(dec) ~ 77.86), so
+    // naively skipping the division would understate |pr| by a factor of
+    // roughly 78, not merely five -- and that correction lands on the RA
+    // *coordinate rate*, not on Polaris' physical tangential proper motion
+    // (multiplying prRadYr back by cos(dec) recovers the catalog value).
+    var naive = pmRaStarMasYr * Astrometry.MAS2RAD_D;
+    // Independent check with a round, non-Polaris declination and a
+    // hand-computed expected value, so this isn't just re-deriving the same
+    // expression the helper itself uses.
+    var independentDec = Math.PI.toDouble() / 3.0d;
+    var independentExpected = 4.2876921957327345e-7d;
+    var independentActual = Astrometry.properMotionPrRadYr(pmRaStarMasYr, independentDec);
     return withinTolerance(actual, expected, 1.0e-18d)
-        && !withinTolerance(actual, naive, 1.0e-9d);
+        && !withinTolerance(actual, naive, 1.0e-9d)
+        && withinTolerance(independentActual, independentExpected, 1.0e-18d);
 }
 
 // Item 2/3/4: with no polar motion and no refraction, the new tangent-plane
@@ -140,7 +150,11 @@ function properMotionConversionDividesOutCosDec(logger as Test.Logger) {
 // (verified symbolically: X=-tan(rho)*sin(hob), Y=tan(rho)*cos(hob) exactly).
 (:test)
 function zeroRefractionZeroPolarMotionMatchesLegacyHourAngleAndPoleDistance(logger as Test.Logger) {
-    var pi = Math.PI.toDouble();
+    // A genuine Double pi is required here: Math.PI is a 32-bit Float, and
+    // .toDouble() cannot recover the digits it never had. Using it on only
+    // one side of this identity would inject a spurious ~4.4e-8 rad error
+    // that has nothing to do with the astrometry being tested.
+    var pi = 3.1415926535897932384626433832795d;
     var rc = (2.0d + 31.0d / 60.0d + 49.09d / 3600.0d) * 15.0d * pi / 180.0d;
     var dc = (89.0d + 15.0d / 60.0d + 50.8d / 3600.0d) * pi / 180.0d;
     var pr = Astrometry.properMotionPrRadYr(44.22d, dc);
@@ -152,6 +166,7 @@ function zeroRefractionZeroPolarMotionMatchesLegacyHourAngleAndPoleDistance(logg
     return withinTolerance(result[:reticleHourAngle], result[:hob], 1.0e-9d)
         && withinTolerance(result[:reticlePoleDistance], pi / 2.0d - result[:dob], 1.0e-9d);
 }
+
 
 // Item 3: nonzero polar motion (xp,yp) must shift the geometric pole's local
 // direction by (to leading order) sqrt(xp^2+yp^2) radians, independent of
@@ -195,25 +210,164 @@ function refractionOnlyMovesPolarisRayNotGeometricPole(logger as Test.Logger) {
     return poleUnchanged && rayMoved;
 }
 
-// Item 6: the new pole-distance-rate propagation must track a full
-// recompute 900s (15 min) later more closely than the legacy fixed-radius
-// model, which ignores differential refraction entirely.
+// Item 6: helpers for full-3D-direction propagation tests. angularSeparationArcsec
+// measures the true angular distance between two local unit vectors (not a
+// raw hour-angle or pole-distance difference), matching how a mount would
+// actually be mis-pointed if the predicted and reference rays diverge.
+function angularSeparationArcsec(a, b) {
+    var cr = Astrometry.cross3(a, b);
+    var crossNorm = Math.sqrt(cr[0] * cr[0] + cr[1] * cr[1] + cr[2] * cr[2]);
+    var dotP = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    var rad = Math.atan2(crossNorm, dotP);
+    return rad * 180.0d * 3600.0d / Math.PI.toDouble();
+}
+// Reconstructs the local unit vector s = normalize(p + X*v + Y*u) that a
+// tangent-plane (X,Y) pair actually represents, given the pole p and basis
+// (u,v) it was measured against -- this is the same reconstruction formula
+// used for cross-checking Astrometry.reticleAt()'s output below.
+function localFrameToVector(pole, u, v, x, y) {
+    return Astrometry.normalize3([
+        pole[0] + x * v[0] + y * u[0],
+        pole[1] + x * v[1] + y * u[1],
+        pole[2] + x * v[2] + y * u[2]
+    ]);
+}
+function reticlePredictedVector(anchor, elapsedSeconds) {
+    var r = Astrometry.reticleAt(anchor, elapsedSeconds);
+    var pole = [anchor[:polePx], anchor[:polePy], anchor[:polePz]];
+    var u = [anchor[:uX], anchor[:uY], anchor[:uZ]];
+    var v = [anchor[:vX], anchor[:vY], anchor[:vZ]];
+    return localFrameToVector(pole, u, v, r[:x], r[:y]);
+}
+// Independent reference: recomputes the observed ray at anchor-time +
+// elapsedSeconds using ERA's own defining linear-growth formula (conventional
+// rate 2*pi*1.00273781191135448 rad/UT1-day) called directly, rather than
+// through Astrometry.era00()/reticleAt(); this cross-checks that the
+// production predictor's incremental Earth-rotation-angle recompute has no
+// sign, scale, or wrap-around bug, without relying on the same code path
+// twice.
+function independentSiderealRateVector(anchor, elapsedSeconds) {
+    var omega = 2.0d * Math.PI.toDouble() * 1.00273781191135448d / 86400.0d;
+    var theta0 = Astrometry.era00(anchor[:ut1a], anchor[:ut1b]);
+    var eral = theta0 + omega * elapsedSeconds + anchor[:along];
+    var ray = Astrometry.localHorizonRay(anchor[:ri], anchor[:di], eral,
+        anchor[:xpl], anchor[:ypl], anchor[:sphi], anchor[:cphi], 0.0d,
+        anchor[:refa], anchor[:refb]);
+    return Astrometry.normalize3([ray[3], ray[4], ray[5]]);
+}
+// Builds a synthetic anchor directly from CIRS-frame inputs (bypassing the
+// full ICRS->CIRS ephemeris/nutation/aberration chain), for isolated
+// local-geometry propagation tests. vacuumPoleDistanceRad is the CIRS
+// north-pole distance (e.g. ~37.7 arcmin, close to Polaris'); hourAngle0Rad
+// is the desired hour-angle-like offset (ri-eral) at elapsedSeconds=0.
+function buildSyntheticAnchor(vacuumPoleDistanceRad, phiRad, xp, yp, phpa, tc, rh, wl, hourAngle0Rad) {
+    var di = Math.PI.toDouble() / 2.0d - vacuumPoleDistanceRad;
+    var sphi = Math.sin(phiRad); var cphi = Math.cos(phiRad);
+    var along = 0.0d;
+    var cl = Math.cos(along); var sl = Math.sin(along);
+    var xpl = xp * cl - yp * sl; var ypl = xp * sl + yp * cl;
+    var ref = Astrometry.refco(phpa, tc, rh, wl);
+    var ut1a = 2456384.5d; var ut1b = 0.0d;
+    var theta0 = Astrometry.era00(ut1a, ut1b);
+    var ri = hourAngle0Rad + theta0 + along;
+    var pole = Astrometry.geometricPoleLocalVector(xpl, ypl, sphi, cphi);
+    var basis = Astrometry.poleTangentBasis(pole);
+    return {
+        :ri => ri, :di => di, :ut1a => ut1a, :ut1b => ut1b, :along => along,
+        :xpl => xpl, :ypl => ypl, :sphi => sphi, :cphi => cphi,
+        :refa => ref[0], :refb => ref[1],
+        :polePx => pole[0], :polePy => pole[1], :polePz => pole[2],
+        :uX => basis[0][0], :uY => basis[0][1], :uZ => basis[0][2],
+        :vX => basis[1][0], :vY => basis[1][1], :vZ => basis[1][2]
+    };
+}
+
+// Item 6 (isolated local-geometry coverage): across a grid of initial hour
+// angles, elapsed times, latitudes, refraction on/off, and polar motion
+// on/off, Astrometry.reticleAt()'s cheap per-tick recompute must reproduce
+// the exact sidereal rotation to well within the requested 0.1 arcsec
+// engineering budget -- unlike the superseded fixed-radius/derivative-rate
+// models, which the accompanying review measured at up to ~4.5 arcsec of
+// error at 900s (phase-dependent, worst near H=90 degrees).
 (:test)
-function shortTimePropagationBeatsFixedRadiusModel(logger as Test.Logger) {
-    var anchor = runAstrometryFull(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
-        2456384.5, 0.969254051, 0.1550675, -0.527800806, -1.2345856, 2738.0,
-        2.47230737e-7, 1.82640464e-6, 731.0, 12.8, 0.59, 0.55);
-    var later = runAstrometryFull(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
-        2456384.5, 0.969254051 + 900.0 / 86400.0, 0.1550675, -0.527800806,
-        -1.2345856, 2738.0, 2.47230737e-7, 1.82640464e-6, 731.0, 12.8, 0.59, 0.55);
-    if (anchor == null || later == null) { return false; }
-    var trueRho = later[:reticlePoleDistance];
-    var predictedNew = anchor[:reticlePoleDistance] + anchor[:reticlePoleDistanceRate] * 900.0;
-    var predictedOld = anchor[:reticlePoleDistance];
-    var errNew = predictedNew - trueRho; if (errNew < 0.0) { errNew = -errNew; }
-    var errOld = predictedOld - trueRho; if (errOld < 0.0) { errOld = -errOld; }
-    // The rate-based model must be meaningfully better, not just tied.
-    return errNew < errOld * 0.9;
+function shortTimePropagationMatchesExactRotationGrid(logger as Test.Logger) {
+    var deg = Math.PI.toDouble() / 180.0d;
+    var arcsec = Math.PI.toDouble() / (180.0d * 3600.0d);
+    var vacuumPoleDistance = 37.7d / 60.0d * deg;
+    var latitudesDeg = [20.0d, 40.0d, 60.0d];
+    var hourAnglesDeg = [0.0d, 45.0d, 90.0d, 135.0d, 180.0d, 225.0d, 270.0d, 315.0d];
+    var times = [0.0d, 60.0d, 300.0d, 600.0d, 899.0d, 900.0d];
+    var polarMotions = [[0.0d, 0.0d], [0.2d * arcsec, -0.3d * arcsec]];
+    var weatherOptions = [[0.0d, 10.0d, 0.5d], [1013.25d, 10.0d, 0.5d]];
+    var worst = 0.0d;
+    var li = 0;
+    for (li = 0; li < latitudesDeg.size(); li += 1) {
+        var phiRad = latitudesDeg[li] * deg;
+        var pmi = 0;
+        for (pmi = 0; pmi < polarMotions.size(); pmi += 1) {
+            var xp = polarMotions[pmi][0]; var yp = polarMotions[pmi][1];
+            var wi = 0;
+            for (wi = 0; wi < weatherOptions.size(); wi += 1) {
+                var phpa = weatherOptions[wi][0]; var tc = weatherOptions[wi][1]; var rh = weatherOptions[wi][2];
+                var hi = 0;
+                for (hi = 0; hi < hourAnglesDeg.size(); hi += 1) {
+                    var h0 = hourAnglesDeg[hi] * deg;
+                    var anchor = buildSyntheticAnchor(vacuumPoleDistance, phiRad, xp, yp, phpa, tc, rh, 0.55d, h0);
+                    var ti = 0;
+                    for (ti = 0; ti < times.size(); ti += 1) {
+                        var t = times[ti];
+                        var sPred = reticlePredictedVector(anchor, t);
+                        var sRef = independentSiderealRateVector(anchor, t);
+                        var errArcsec = angularSeparationArcsec(sPred, sRef);
+                        if (errArcsec > worst) { worst = errArcsec; }
+                    }
+                }
+            }
+        }
+    }
+    return worst < 0.1d;
+}
+
+// Item 6 (end-to-end coverage): using the application's actual Polaris
+// catalogue input and a representative EOP fixture, the production
+// predictor (reticleAt() called on the anchor stored at t=0) must still
+// track an independent, full recomputation at each later timestamp (which
+// re-runs the entire ephemeris/nutation/aberration chain and re-derives its
+// own geometric pole) within the same 0.1 arcsec budget, up through the
+// ~900s (15 minute) re-anchor interval.
+(:test)
+function endToEndPolarisPropagationMatchesFullRecompute(logger as Test.Logger) {
+    var pi = 3.1415926535897932384626433832795d;
+    var rc = (2.0d + 31.0d / 60.0d + 49.09d / 3600.0d) * 15.0d * pi / 180.0d;
+    var dc = (89.0d + 15.0d / 60.0d + 50.8d / 3600.0d) * pi / 180.0d;
+    var pr = Astrometry.properMotionPrRadYr(44.22d, dc);
+    var pd = -11.74e-3d * pi / (180.0d * 3600.0d);
+    var px = 7.54e-3d; var rv = -16.0d;
+    var utc1 = 2461293.1391319446d; var utc2 = 0.0d; var dut1 = 0.0d;
+    var elong = 116.30780d * pi / 180.0d; var phi = 40.06890d * pi / 180.0d; var hm = 125.0d;
+    var xp = 2.47230737e-7d; var yp = 1.82640464e-6d;
+    var phpa = 731.0d; var tc = 10.0d; var rh = 0.5d; var wl = 0.55d;
+    var anchorResult = runAstrometryFull(rc, dc, pr, pd, px, rv, utc1, utc2, dut1, elong, phi, hm, xp, yp, phpa, tc, rh, wl);
+    if (anchorResult == null || anchorResult[:status] != 0) { return false; }
+    var anchor = anchorResult[:reticleAnchor];
+    var anchorPole = [anchorResult[:polePx], anchorResult[:polePy], anchorResult[:polePz]];
+    var anchorBasis = Astrometry.poleTangentBasis(anchorPole);
+    var times = [60.0d, 300.0d, 600.0d, 899.0d, 900.0d];
+    var worst = 0.0d;
+    var ti = 0;
+    for (ti = 0; ti < times.size(); ti += 1) {
+        var t = times[ti];
+        var predicted = Astrometry.reticleAt(anchor, t);
+        var sPred = localFrameToVector(anchorPole, anchorBasis[0], anchorBasis[1], predicted[:x], predicted[:y]);
+        var laterResult = runAstrometryFull(rc, dc, pr, pd, px, rv, utc1, utc2 + t / 86400.0d, dut1, elong, phi, hm, xp, yp, phpa, tc, rh, wl);
+        if (laterResult == null || laterResult[:status] != 0) { return false; }
+        var laterPole = [laterResult[:polePx], laterResult[:polePy], laterResult[:polePz]];
+        var laterBasis = Astrometry.poleTangentBasis(laterPole);
+        var sRef = localFrameToVector(laterPole, laterBasis[0], laterBasis[1], laterResult[:reticleX], laterResult[:reticleY]);
+        var errArcsec = angularSeparationArcsec(sPred, sRef);
+        if (errArcsec > worst) { worst = errArcsec; }
+    }
+    return worst < 0.1d;
 }
 
 (:test)
