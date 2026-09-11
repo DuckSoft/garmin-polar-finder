@@ -2275,6 +2275,82 @@ module Astrometry {
     function fapa03(t){return(0.024381750+0.00000538691*t)*t;}
     function eors(r,s){var x=r[2][0],ax=x!=0.0?x:1.0,xs=1.0-ax*x,ys=-ax*r[2][1],zs=-x,p=r[0][0]*xs+r[0][1]*ys+r[0][2]*zs,q=r[1][0]*xs+r[1][1]*ys+r[1][2]*zs;return(p!=0.0||q!=0.0)?s-Math.atan2(q,p):s;}
 
+    // Star catalogs conventionally tabulate the RA proper motion as
+    // mu_alpha* = d(alpha)/dt * cos(dec) ("pmRaStarMasYr", mas/yr), while the
+    // SOFA-style pr argument consumed by pmpx()/atciq() wants the raw
+    // coordinate rate d(alpha)/dt ("prRadYr", rad/yr). The cos(dec) factor
+    // must be divided back out before converting units; this is not a fixed
+    // constant because it depends on the star's own declination.
+    function properMotionPrRadYr(pmRaStarMasYr, decRad) {
+        var pmRaStarRadYr = pmRaStarMasYr * 1.0e-3 * DAS2R;
+        return pmRaStarRadYr / Math.cos(decRad);
+    }
+
+    function normalize3(v) { var n = pn(v); return [n[1], n[2], n[3]]; }
+    function cross3(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+
+    // Local horizon-frame ray (SOFA "aet"/"aeo" convention: z is the local
+    // zenith, azimuth = atan2(y,-x)) for a CIRS direction (ri,di) observed at
+    // local Earth rotation angle eral, given polar motion tilted onto the
+    // local meridian (xpl,ypl), geodetic latitude (sphi,cphi), diurnal
+    // aberration magnitude, and refraction constants refa/refb. Returns
+    // [xaet,yaet,zaet, xaeo,yaeo,zaeo, az, zd]: "aet" is the ray before
+    // atmospheric refraction, "aeo" is the refraction-bent observed ray.
+    function localHorizonRay(ri, di, eral, xpl, ypl, sphi, cphi, diurab, refa, refb) {
+        var hv = s2c(ri - eral, di);
+        var xx = hv[0]; var yy = hv[1]; var zz = hv[2];
+        var xhd = xx + xpl * zz; var yhd = yy - ypl * zz; var zhd = zz - xpl * xx + ypl * yy;
+        var ff0 = 1.0 - diurab * yhd;
+        var xhdt = ff0 * xhd; var yhdt = ff0 * (yhd + diurab); var zhdt = ff0 * zhd;
+        var xaet = sphi * xhdt - cphi * zhdt; var yaet = yhdt; var zaet = cphi * xhdt + sphi * zhdt;
+        var az = (xaet != 0.0 || yaet != 0.0) ? Math.atan2(yaet, -xaet) : 0.0;
+        var rr = Math.sqrt(xaet * xaet + yaet * yaet); if (rr <= 1e-6) { rr = 1e-6; }
+        var zsafe = zaet > 0.05 ? zaet : 0.05;
+        var tz = rr / zsafe;
+        var rw = refb * tz * tz;
+        var delta = (refa + rw) * tz / (1.0 + (refa + 3.0 * rw) / (zsafe * zsafe));
+        var cdel = 1.0 - delta * delta / 2.0;
+        var fobs = cdel - delta * zsafe / rr;
+        var xaeo = xaet * fobs; var yaeo = yaet * fobs; var zaeo = cdel * zaet + delta * rr;
+        var zd = Math.atan2(Math.sqrt(xaeo * xaeo + yaeo * yaeo), zaeo);
+        return [xaet, yaet, zaet, xaeo, yaeo, zaeo, az, zd];
+    }
+
+    // The mount's mechanical RA axis targets the geometric Earth rotation
+    // axis (the Celestial Intermediate Pole), not an incoming light ray, so
+    // it must never be refracted. In the CIRS frame the CIP is trivially
+    // [0,0,1] (dec=+90 regardless of RA), so its local horizon direction is
+    // obtained by running that trivial vector through the SAME polar-motion
+    // geometry used for Polaris above, but with refa=refb=0. The result does
+    // not depend on Earth rotation angle or on Polaris's own position, only
+    // on polar motion (xp,yp) and geodetic latitude, so it stays valid
+    // without recomputation for as long as the anchor is valid.
+    function geometricPoleLocalVector(xpl, ypl, sphi, cphi, diurab) {
+        var xhd = xpl; var yhd = -ypl; var zhd = 1.0;
+        var ff0 = 1.0 - diurab * yhd;
+        var xhdt = ff0 * xhd; var yhdt = ff0 * (yhd + diurab); var zhdt = ff0 * zhd;
+        var xaet = sphi * xhdt - cphi * zhdt; var yaet = yhdt; var zaet = cphi * xhdt + sphi * zhdt;
+        return normalize3([xaet, yaet, zaet]);
+    }
+
+    // Orthonormal tangent-plane basis centered on the geometric pole p, with
+    // "up" (u) chosen toward the local zenith z=(0,0,1) per the reticle
+    // convention, and v completing a right-handed frame.
+    function poleTangentBasis(p) {
+        var zp = p[2];
+        var u = normalize3([-zp * p[0], -zp * p[1], 1.0 - zp * zp]);
+        var v = cross3(p, u);
+        return [u, v];
+    }
+
+    // Gnomonic (tangent-plane) coordinates of local unit vector s relative
+    // to pole p with basis (u,v): X grows toward v, Y grows toward u.
+    function poleTangentXY(s, p, u, v) {
+        var spDot = dp(s, p);
+        if (spDot == 0.0) { spDot = 1.0e-12; }
+        return [dp(s, v) / spDot, dp(s, u) / spDot];
+    }
+
     // Resumable astrometry contract. Each step performs at most the bounded
     // term budget in the ephemeris, nutation, or S06 series; discard state to cancel.
     function begin(rc, dc, pr, pd, px, rv, utc1, utc2, dut1, elong, phi, hm, xp, yp, phpa, tc, rh, wl) {
@@ -2509,9 +2585,68 @@ module Astrometry {
             var pmt = ((state[:tt0] - DJ00) + state[:tt1]) / DJY; var dpv = [0.0d, 0.0d, 0.0d]; var dvv = [0.0d, 0.0d, 0.0d]; var pb = [0.0d, 0.0d, 0.0d]; var vb = [0.0d, 0.0d, 0.0d]; var ph = [0.0d, 0.0d, 0.0d]; var v2 = 0.0d; var i = 0;
             for (i = 0; i < 3; i += 1) { dpv[i] = pv[0][i] / DAU; dvv[i] = pv[1][i] / AUDMS; pb[i] = ebpv[0][i] + dpv[i]; vb[i] = ebpv[1][i] + dvv[i]; ph[i] = ehpv[i] + dpv[i]; }
             var emn = pn(ph); var vv = [0.0d, 0.0d, 0.0d]; var k = 0; for (k = 0; k < 3; k += 1) { vv[k] = vb[k] * CR; v2 += vv[k] * vv[k]; }
-            var ast = {:pmt => pmt, :eb => pb, :eh => [emn[1], emn[2], emn[3]], :em => emn[0], :v => vv, :bm1 => Math.sqrt(1.0 - v2), :bpn => c2ixys(x, y, ss), :eral => theta + along, :xpl => a[12] * cl - a[13] * sl, :ypl => a[12] * sl + a[13] * cl, :sphi => Math.sin(a[10]), :cphi => Math.cos(a[10]), :diurab => 0.0, :refa => ref[0], :refb => ref[1]};
-            var pco = pmpx(a[0], a[1], a[2], a[3], a[4], a[5], ast[:pmt], ast[:eb]); var pnat = ldsun(pco, ast[:eh], ast[:em]); var ppr = aberration(pnat, ast[:v], ast[:em], ast[:bm1]); var pi = rxp(ast[:bpn], ppr); var cs = c2s(pi); var ri = anp(cs[0]); var di = cs[1]; var hv = s2c(ri - ast[:eral], di); var xx = hv[0]; var yy = hv[1]; var zz = hv[2]; var xhd = xx + ast[:xpl] * zz; var yhd = yy - ast[:ypl] * zz; var zhd = zz - ast[:xpl] * xx + ast[:ypl] * yy; var ff0 = 1.0 - ast[:diurab] * yhd; var xhdt = ff0 * xhd; var yhdt = ff0 * (yhd + ast[:diurab]); var zhdt = ff0 * zhd; var xaet = ast[:sphi] * xhdt - ast[:cphi] * zhdt; var yaet = yhdt; var zaet = ast[:cphi] * xhdt + ast[:sphi] * zhdt; var az = (xaet != 0.0 || yaet != 0.0) ? Math.atan2(yaet, -xaet) : 0.0; var rr = Math.sqrt(xaet * xaet + yaet * yaet); if (rr <= 1e-6) { rr = 1e-6; } var zsafe = zaet > 0.05 ? zaet : 0.05; var tz = rr / zsafe; var rw = ast[:refb] * tz * tz; var delta = (ast[:refa] + rw) * tz / (1.0 + (ast[:refa] + 3.0 * rw) / (zsafe * zsafe)); var cdel = 1.0 - delta * delta / 2.0; var fobs = cdel - delta * zsafe / rr; var xaeo = xaet * fobs; var yaeo = yaet * fobs; var zaeo = cdel * zaet + delta * rr; var zd = Math.atan2(Math.sqrt(xaeo * xaeo + yaeo * yaeo), zaeo); var haVec = [ast[:sphi] * xaeo + ast[:cphi] * zaeo, yaeo, -ast[:cphi] * xaeo + ast[:sphi] * zaeo]; var hcs = c2s(haVec); var raobs = ast[:eral] + hcs[0];
-            var result = {:status => 0, :aob => anp(az), :zob => zd, :hob => -hcs[0], :dob => hcs[1], :rob => anp(raobs), :eo => eors(state[:rnpb], ss), :altitude => D2PI / 4.0 - zd}; state[:stage] = -1; state[:progress] = 1.0; state[:result] = result; return resumableReply(state, true, result);
+            var xpl = a[12] * cl - a[13] * sl; var ypl = a[12] * sl + a[13] * cl; var sphi = Math.sin(a[10]); var cphi = Math.cos(a[10]); var diurab = 0.0;
+            var ast = {:pmt => pmt, :eb => pb, :eh => [emn[1], emn[2], emn[3]], :em => emn[0], :v => vv, :bm1 => Math.sqrt(1.0 - v2), :bpn => c2ixys(x, y, ss), :eral => theta + along, :xpl => xpl, :ypl => ypl, :sphi => sphi, :cphi => cphi, :diurab => diurab, :refa => ref[0], :refb => ref[1]};
+            var pco = pmpx(a[0], a[1], a[2], a[3], a[4], a[5], ast[:pmt], ast[:eb]); var pnat = ldsun(pco, ast[:eh], ast[:em]); var ppr = aberration(pnat, ast[:v], ast[:em], ast[:bm1]); var pi = rxp(ast[:bpn], ppr); var cs = c2s(pi); var ri = anp(cs[0]); var di = cs[1];
+
+            // Polaris' observed incoming-light ray: this is the ONLY vector
+            // that atmospheric refraction (ast[:refa]/ast[:refb]) is allowed
+            // to touch.
+            var ray0 = localHorizonRay(ri, di, ast[:eral], xpl, ypl, sphi, cphi, diurab, ast[:refa], ast[:refb]);
+            var xaeo0 = ray0[3]; var yaeo0 = ray0[4]; var zaeo0 = ray0[5];
+            var haVec0 = [sphi * xaeo0 + cphi * zaeo0, yaeo0, -cphi * xaeo0 + sphi * zaeo0];
+            var hcs0 = c2s(haVec0); var raobs0 = ast[:eral] + hcs0[0];
+
+            // Geometric pole: the mechanical direction the mount's RA axis
+            // should point at. Built from the same polar-motion/latitude
+            // geometry, but never refracted.
+            var poleVec = geometricPoleLocalVector(xpl, ypl, sphi, cphi, diurab);
+            var basis = poleTangentBasis(poleVec); var uVec = basis[0]; var vVec = basis[1];
+            var sVec0 = normalize3([xaeo0, yaeo0, zaeo0]);
+            var xy0 = poleTangentXY(sVec0, poleVec, uVec, vVec); var x0 = xy0[0]; var y0 = xy0[1];
+
+            // Cheap short-time slope for the tangent-plane reticle position:
+            // over tens of seconds only the Earth rotation angle (eral)
+            // meaningfully changes; the pole, its tangent basis, and
+            // Polaris's CIRS direction (ri,di) do not need to be
+            // recomputed from scratch, so this avoids re-running the full
+            // resumable EPV/nutation/S06 chain just to get a slope.
+            var dtSlope = 60.0;
+            var theta1 = era00(state[:ut1][1], state[:ut1][2] + dtSlope / DAYSEC);
+            var eral1 = theta1 + along;
+            var ray1 = localHorizonRay(ri, di, eral1, xpl, ypl, sphi, cphi, diurab, ast[:refa], ast[:refb]);
+            var sVec1 = normalize3([ray1[3], ray1[4], ray1[5]]);
+            var xy1 = poleTangentXY(sVec1, poleVec, uVec, vVec);
+            var dxdt = (xy1[0] - x0) / dtSlope; var dydt = (xy1[1] - y0) / dtSlope;
+            var rho0 = Math.atan(Math.sqrt(x0 * x0 + y0 * y0));
+            var rho1 = Math.atan(Math.sqrt(xy1[0] * xy1[0] + xy1[1] * xy1[1]));
+            var rhoRate = (rho1 - rho0) / dtSlope;
+
+            var result = {
+                :status => 0, :aob => anp(ray0[6]), :zob => ray0[7], :hob => -hcs0[0], :dob => hcs0[1],
+                :rob => anp(raobs0), :eo => eors(state[:rnpb], ss), :altitude => D2PI / 4.0 - ray0[7],
+                // Raw gnomonic tangent-plane coordinates of Polaris' observed
+                // ray relative to the geometric pole (X0,Y0) at anchor time,
+                // plus their short-time slope (dXdt,dYdt) from a cheap +60s
+                // Earth-rotation-only recompute.
+                :reticleX => x0, :reticleY => y0, :reticleDXDt => dxdt, :reticleDYDt => dydt,
+                // Equivalent hour-angle/pole-distance pair (matches the old
+                // hob/(pi/2-dob) convention when polar motion and refraction
+                // are both negligible). The hour-angle-like term rotates at
+                // the exact sidereal rate (Earth rotation angle grows
+                // perfectly linearly with UT1 by definition, so re-deriving
+                // it from a finite difference would only add noise), while
+                // reticlePoleDistanceRate captures the small, previously
+                // ignored short-time radius drift (mostly differential
+                // refraction) instead of assuming a fixed radius forever.
+                :reticleHourAngle => Math.atan2(-x0, y0), :reticlePoleDistance => rho0,
+                :reticlePoleDistanceRate => rhoRate,
+                // Geometric pole local unit vector, exposed so tests can
+                // confirm it shifts with polar motion (xp,yp) and is
+                // completely unaffected by atmospheric refraction.
+                :polePx => poleVec[0], :polePy => poleVec[1], :polePz => poleVec[2]
+            };
+            state[:stage] = -1; state[:progress] = 1.0; state[:result] = result; return resumableReply(state, true, result);
         }
         return resumableReply(state, true, state[:result]);
     }
