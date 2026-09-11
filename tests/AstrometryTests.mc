@@ -820,3 +820,70 @@ function displayDelegateSeparatesTouchFromPhysicalButtons(logger as Test.Logger)
     return delegate.handleKey(WatchUi.KEY_ESC)
         && view.screen == PolarFinderView.LOCATE;
 }
+
+class ActionsResumeTestModel {
+    var confirmed = true;
+    var latitude = 40.0;
+    var longitude = 116.0;
+    var elevation = 0.0;
+    var pressureMode = 2;
+    var temperature = 10.0;
+    var humidity = 50.0;
+    var calculationAlert = false;
+    var reticleType = RETICLE_GENERIC;
+
+    function hasLocation() { return true; }
+    function calculationSucceeded() {}
+}
+
+class ActionsResumeTestView extends PolarFinderView {
+    var calculationStarts = 0;
+    var restartRequested = false;
+    var timerStops = 0;
+
+    function initialize() {
+        PolarFinderView.initialize(new ActionsResumeTestModel());
+    }
+
+    function beginCalculation(restarting) {
+        calculationStarts += 1;
+        restartRequested = restarting;
+        PolarFinderView.beginCalculation(restarting);
+    }
+
+    function stopTimers() {
+        timerStops += 1;
+        PolarFinderView.stopTimers();
+    }
+}
+
+function exerciseActionsResume(runPendingDisplayTick) {
+    var view = new ActionsResumeTestView();
+    view.open(PolarFinderView.DISPLAY);
+    view.select();
+    if (runPendingDisplayTick) { view.displayTick(); }
+    view.back();
+    return view;
+}
+
+(:test)
+function actionsBackRecalculatesAfterDisplayTimerStops(logger as Test.Logger) {
+    var view = exerciseActionsResume(true);
+    var ok = view.calculationStarts == 1
+        && view.restartRequested
+        && view.timerStops == 2
+        && !view.touchWakeOnly();
+    view.stopTimers();
+    return ok;
+}
+
+(:test)
+function actionsBackRecalculatesBeforePendingDisplayTick(logger as Test.Logger) {
+    var view = exerciseActionsResume(false);
+    var ok = view.calculationStarts == 1
+        && view.restartRequested
+        && view.timerStops == 1
+        && !view.touchWakeOnly();
+    view.stopTimers();
+    return ok;
+}
