@@ -12,4 +12,4 @@ jobs:
         distribution: temurin
         java-version: "17"
     - name: Setup ConnectIQ SDK
-      uses: DuckSoft/setup-connectiq-actions@v1
+      uses: DuckSoft/setup-connectiq-actions@v2
