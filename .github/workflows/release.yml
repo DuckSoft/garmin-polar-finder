@@ -26,9 +26,51 @@ jobs:
       - name: Check formatting
         run: make lint
 
+  test:
+    name: Test ${{ matrix.device }}
+    needs: validate
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [fr255s, fr255, fr965]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up ConnectIQ SDK and simulator
+        uses: DuckSoft/setup-connectiq-actions@v2
+        with:
+          sdk-version: '9.2.0'
+          install-simulator-dependencies: 'true'
+      - name: Create test developer key
+        shell: bash
+        run: |
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out "$RUNNER_TEMP/test-key.pem"
+          openssl pkcs8 -topk8 -inform PEM -outform DER -in "$RUNNER_TEMP/test-key.pem" -out "$RUNNER_TEMP/test-key.der" -nocrypt
+      - name: Compile unit tests
+        shell: bash
+        run: >-
+          monkeyc
+          -t
+          -d "${{ matrix.device }}"
+          -f "monkey.jungle:test.jungle"
+          -o "$RUNNER_TEMP/PolarFinder-tests-${{ matrix.device }}.prg"
+          -y "$RUNNER_TEMP/test-key.der"
+      - name: Run unit tests
+        shell: bash
+        run: bash tests/run-simulator-tests.sh "$RUNNER_TEMP/PolarFinder-tests-${{ matrix.device }}.prg" "${{ matrix.device }}"
+
   build:
     name: Build ${{ matrix.device }}
-    needs: validate
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
