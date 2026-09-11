@@ -2628,25 +2628,22 @@ module Astrometry {
             var sVec0 = normalize3([xaeo0, yaeo0, zaeo0]);
             var xy0 = poleTangentXY(sVec0, poleVec, uVec, vVec); var x0 = xy0[0]; var y0 = xy0[1];
 
-            // Frozen anchor context for cheap, exact-geometry per-tick reticle
-            // reevaluation (see reticleAt()). Only the expensive parts of this
-            // calculation (EPV ephemeris series, IAU2000A nutation, s06 CIO
-            // locator, light-time/deflection/aberration) are retired here;
-            // everything below is reused unchanged by every display tick until
-            // the next anchor, and only Earth Rotation Angle is recomputed
-            // from a fresh timestamp.
+            // Frozen anchor context for cheap per-tick reticle reevaluation
+            // (see reticleAt()). The expensive ephemeris, nutation, CIO,
+            // light-time, deflection, and aberration work is retained while
+            // Earth Rotation Angle and local geometry are reevaluated for
+            // each display timestamp.
             //
-            // Approximations intentionally frozen for the life of the anchor
-            // (documented per-field, all sub-arcsecond over a ~15 minute
-            // window): UT1-UTC (dut1) is baked into ut1a/ut1b already and not
-            // re-fetched from the EOP table (which is itself only tabulated
-            // once per day); the "along" (site longitude + TIO locator sp)
-            // and polar-motion-tilted xpl/ypl are refrozen (sp drifts by
-            // microarcseconds/century); refa/refb (refraction coefficients)
-            // are refrozen (they depend on pressure/temperature/humidity, not
-            // on the clock); and the CIRS direction (ri,di) of Polaris itself
-            // is refrozen (proper motion/parallax/aberration change on
-            // hour/day timescales, not seconds).
+            // The cached-context calculation is exact only with respect to
+            // those retained quantities. Their aging error is independently
+            // checked against the 0.1 arcsecond propagation budget over the
+            // supported ~15 minute anchor interval by the full-recomputation
+            // test. The separate frozen-context test checks local-geometry
+            // consistency; it is not an end-to-end accuracy claim.
+            //
+            // UT1-UTC is baked into ut1a/ut1b and is not re-fetched from the
+            // daily EOP table. "along", xpl/ypl, refa/refb, and the CIRS
+            // direction (ri,di) are likewise retained until the next anchor.
             var anchor = {
                 :ri => ri, :di => di,
                 :ut1a => state[:ut1][1], :ut1b => state[:ut1][2],

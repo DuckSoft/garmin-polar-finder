@@ -170,12 +170,12 @@ class PolarFinderView extends WatchUi.View {
   function finalizePressure(){var now=Time.now().value();if(_model.pressureMode==2){_seaPressure=null;_observerPressure=0.0;_pressureSource=s(Rez.Strings.RefractionOff);return;}if(_model.pressureMode==1){_seaPressure=null;_observerPressure=_model.manualPressure;_pressureSource=s(Rez.Strings.Manual);return;}if(_pressureSamples.size()>0){var total=0.0;for(var i=0;i<_pressureSamples.size();i++){total+=_pressureSamples[i];}_seaPressure=total/_pressureSamples.size();_cachedSeaPressure=_seaPressure;_cachedPressureTime=now;_pressureSource=s(Rez.Strings.Barometer);_pressureTime=now;}else if(_cachedSeaPressure!=null&&now-_cachedPressureTime<=300){_seaPressure=_cachedSeaPressure;_pressureTime=_cachedPressureTime;_pressureSource=s(Rez.Strings.PressureRecent);}else if(_model.manualPressureSet){_seaPressure=null;_observerPressure=_model.manualPressure;_pressureSource=s(Rez.Strings.PressureFallback);return;}else{_seaPressure=1013.25;_pressureSource=s(Rez.Strings.StandardAtmosphere);_pressureTime=now;}var h=_model.elevation;var base=1.0-(0.0065*h)/(_model.temperature+273.15+0.0065*h);_observerPressure=_seaPressure*Math.pow(base,5.257);}
   function loadEarthData(){var now=Time.now().value();var mjd=Astrometry.unixSecondsToJulianDate(now)-2400000.5d;_eop=IersEopData.eop(mjd);if(_eop[:status]!=0){_errorText=s(Rez.Strings.EarthUnsupported);throw new Lang.Exception();}_geoidOffset=GeoidData.geoidOffset(_model.latitude,_model.longitude);_ellipsoidHeight=GeoidData.mslToEllipsoid(_model.latitude,_model.longitude,_model.elevation);}
   function beginAstronomy(){var jd=Astrometry.unixSecondsToJulianDate(_resultTime);var pi=Math.PI.toDouble();var rc=(2.0d+31.0d/60.0d+49.09d/3600.0d)*15.0d*pi/180.0d;var dc=(89.0d+15.0d/60.0d+50.8d/3600.0d)*pi/180.0d;var pmRaStarMasYr=44.22d;var prRadYr=Astrometry.properMotionPrRadYr(pmRaStarMasYr,dc);_astroState=Astrometry.begin(rc,dc,prRadYr,-11.74e-3d*pi/(180.0d*3600.0d),7.54e-3d,-16.0d,jd,0.0d,_eop[:dut1],_model.longitude.toDouble()*pi/180.0d,_model.latitude.toDouble()*pi/180.0d,_ellipsoidHeight.toDouble(),_eop[:xp],_eop[:yp],_observerPressure.toDouble(),_model.temperature.toDouble(),_model.humidity.toDouble()/100.0d,0.55d);}
-  // :anchor caches the frozen astrometry context (CIRS direction, local
-  // Earth-orientation geometry, geometric pole/tangent basis, refraction
-  // coefficients) needed by Astrometry.reticleAt() to cheaply and exactly
-  // recompute the reticle position at any later timestamp, without
-  // re-running the full ephemeris/nutation/aberration chain and without
-  // assuming a constant angular rate or pole distance between anchors.
+  // :anchor caches the expensive astrometry context needed by
+  // Astrometry.reticleAt(). Each display tick reevaluates Earth rotation,
+  // local ray geometry, refraction, and reticle projection at one captured
+  // timestamp; marker and readouts then consume that shared snapshot. The
+  // full-recomputation propagation test bounds context-aging error over the
+  // supported anchor interval.
   function stepAstronomy(){var reply=Astrometry.step(_astroState);_astroState=reply[:state];_progress=50+(reply[:progress]*40).toNumber();if(!reply[:done]){return false;}var a=reply[:result];_astroState=null;if(a==null||a[:status]!=0){_errorText=s(Rez.Strings.AstronomyFailed);throw new Lang.Exception();}_result={:hourAngle=>a[:reticleHourAngle],:poleDistance=>a[:reticlePoleDistance],:anchor=>a[:reticleAnchor],:altitude=>(Math.PI.toDouble()/2.0d-a[:zob]),:warning=>(_eop[:warning]?Rez.Strings.EarthExpires:null)};return true;}
   // Shared per-tick reticle solution: every display/readout consumer
   // (drawDisplay, drawReticleDisplay, updateIoptronReadouts) calls this same

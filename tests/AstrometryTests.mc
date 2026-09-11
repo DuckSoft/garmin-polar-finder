@@ -178,8 +178,8 @@ function zeroRefractionZeroPolarMotionMatchesLegacyHourAngleAndPoleDistance(logg
 // shortcut could never represent, since it never modeled a separate pole.
 (:test)
 function nonzeroPolarMotionShiftsGeometricPole(logger as Test.Logger) {
-    var xp = 2.47230737e-7;
-    var yp = 1.82640464e-6;
+    var xp = 2.47230737e-7d;
+    var yp = 1.82640464e-6d;
     var withPm = runAstrometryFull(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
         2456384.5, 0.969254051, 0.1550675, -0.527800806, -1.2345856, 2738.0,
         xp, yp, 731.0, 12.8, 0.59, 0.55);
@@ -192,7 +192,13 @@ function nonzeroPolarMotionShiftsGeometricPole(logger as Test.Logger) {
     var dz = withPm[:polePz] - withoutPm[:polePz];
     var shift = Math.sqrt(dx * dx + dy * dy + dz * dz);
     var expectedShift = Math.sqrt(xp * xp + yp * yp);
-    return withinTolerance(shift, expectedShift, 1.0e-9d);
+    if (!withinTolerance(shift, expectedShift, 1.0e-9d)) {
+        logger.debug("geometric-pole shift mismatch: shift=" + shift
+            + " expected=" + expectedShift + " errorNrad=" + ((shift - expectedShift) * 1.0e9d)
+            + " xp=" + xp + " yp=" + yp);
+        return false;
+    }
+    return true;
 }
 
 // Item 5: toggling atmospheric refraction must move Polaris' observed ray
@@ -305,6 +311,7 @@ function shortTimePropagationMatchesExactRotationGrid(logger as Test.Logger) {
     var polarMotions = [[0.0d, 0.0d], [0.2d * arcsec, -0.3d * arcsec]];
     var weatherOptions = [[0.0d, 10.0d, 0.5d], [1013.25d, 10.0d, 0.5d]];
     var worst = 0.0d;
+    var worstFixture = "";
     var li = 0;
     for (li = 0; li < latitudesDeg.size(); li += 1) {
         var phiRad = latitudesDeg[li] * deg;
@@ -331,19 +338,27 @@ function shortTimePropagationMatchesExactRotationGrid(logger as Test.Logger) {
                         // leave "worst" looking fine. Every case must itself
                         // be a finite, non-negative value under budget.
                         if (!(errArcsec >= 0.0d && errArcsec < budgetArcsec)) {
-                            logger.debug("propagation grid case failed: lat=" + latitudesDeg[li]
-                                + " xp=" + xp + " yp=" + yp + " phpa=" + phpa
+                            logger.debug("propagation grid case failed: case="
+                                + li + "/" + pmi + "/" + wi + "/" + hi + "/" + ti
+                                + " lat=" + latitudesDeg[li] + " xp=" + xp + " yp=" + yp
+                                + " phpa=" + phpa + " tc=" + tc + " rh=" + rh + " wl=0.55"
                                 + " h0deg=" + hourAnglesDeg[hi] + " t=" + t
                                 + " errArcsec=" + errArcsec);
                             return false;
                         }
-                        if (errArcsec > worst) { worst = errArcsec; }
+                        if (worstFixture == "" || errArcsec > worst) {
+                            worst = errArcsec;
+                            worstFixture = "case=" + li + "/" + pmi + "/" + wi + "/" + hi + "/" + ti
+                                + " lat=" + latitudesDeg[li] + " xp=" + xp + " yp=" + yp
+                                + " phpa=" + phpa + " tc=" + tc + " rh=" + rh + " wl=0.55"
+                                + " h0deg=" + hourAnglesDeg[hi] + " t=" + t;
+                        }
                     }
                 }
             }
         }
     }
-    logger.debug("propagation grid worst case errArcsec=" + worst);
+    logger.debug("propagation grid worst case errArcsec=" + worst + " " + worstFixture);
     return worst < budgetArcsec;
 }
 
@@ -374,6 +389,7 @@ function endToEndPolarisPropagationMatchesFullRecompute(logger as Test.Logger) {
     var anchorBasis = Astrometry.poleTangentBasis(anchorPole);
     var times = [60.0d, 300.0d, 600.0d, 899.0d, 900.0d];
     var worst = 0.0d;
+    var worstFixture = "";
     var ti = 0;
     for (ti = 0; ti < times.size(); ti += 1) {
         var t = times[ti];
@@ -389,12 +405,18 @@ function endToEndPolarisPropagationMatchesFullRecompute(logger as Test.Logger) {
         // NaN/negative/over-budget cases individually instead of relying on
         // a running maximum that a NaN comparison could silently bypass.
         if (!(errArcsec >= 0.0d && errArcsec < budgetArcsec)) {
-            logger.debug("end-to-end propagation case failed: t=" + t + " errArcsec=" + errArcsec);
+            logger.debug("end-to-end propagation case failed: t=" + t
+                + " xp=" + xp + " yp=" + yp + " phpa=" + phpa + " tc=" + tc
+                + " rh=" + rh + " wl=" + wl + " errArcsec=" + errArcsec);
             return false;
         }
-        if (errArcsec > worst) { worst = errArcsec; }
+        if (worstFixture == "" || errArcsec > worst) {
+            worst = errArcsec;
+            worstFixture = "t=" + t + " xp=" + xp + " yp=" + yp
+                + " phpa=" + phpa + " tc=" + tc + " rh=" + rh + " wl=" + wl;
+        }
     }
-    logger.debug("end-to-end propagation worst case errArcsec=" + worst);
+    logger.debug("end-to-end propagation worst case errArcsec=" + worst + " " + worstFixture);
     return worst < budgetArcsec;
 }
 
