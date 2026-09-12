@@ -71,8 +71,10 @@ The astrometry calculation uses bundled, read-only reference data:
 `source/GeoidData.mc` is handwritten; `source/IersEopData.mc` is generated from
 the single checked-in `data/iers/finals2000A-YYYY-MM-DD.txt` snapshot. Ordinary
 builds and CI do not refresh IERS data. See
-[Earth-data generation and CI](docs/earth-data-generation-and-ci.md) for ownership,
-reproducible generation, the explicit update procedure, and CI signing security.
+[Earth-data generation](docs/earth-data-generation.md) for ownership,
+reproducible generation, and the explicit update procedure.
+See [CI trust and build contract](docs/ci.md) for workflow triggers, signing
+security, simulator tests, and build artifacts.
 
 ## Languages
 
