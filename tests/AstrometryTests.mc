@@ -503,12 +503,28 @@ function variableHeightDetailsKeepFocusedBlockVisible(logger as Test.Logger) {
     return start == 0;
 }
 (:test)
-function atmosphereConditionalRowsRemainSelectable(logger as Test.Logger) {
-    // Physical navigation and taps on either half of the omitted manual
-    // pressure slot must resolve to an actual rendered row.
+function atmosphereRowsReflowAndSkipReadOnlyItems(logger as Test.Logger) {
     return atmosphereVisibleFocus(1, 1, false) == 2
         && atmosphereVisibleFocus(1, -1, false) == 0
-        && atmosphereVisibleFocus(1, 1, true) == 1;
+        && atmosphereVisibleFocus(1, 1, true) == 1
+        && atmosphereVisibleFocus(4, 1, true) == 5
+        && atmosphereVisibleFocus(4, -1, true) == 3
+        && atmosphereVisibleIndex(6, false) == 5
+        && atmosphereVisibleIndex(6, true) == 6
+        && atmosphereItemAt(1, false) == 2
+        && atmosphereItemAt(1, true) == 1
+        && atmosphereItemAt(5, false) == 6;
+}
+
+(:test)
+function atmosphereRowsCenterAroundPhysicalDisplay(logger as Test.Logger) {
+    var profile = new DisplayProfile(454, 454, 37);
+    var automaticTop = centeredMenuRowTop(profile, 6);
+    var manualTop = centeredMenuRowTop(profile, 7);
+    return automaticTop == 122
+        && automaticTop + 5 * profile.rowPitch == 332
+        && manualTop == 101
+        && manualTop + 6 * profile.rowPitch == 353;
 }
 
 (:test)
@@ -720,6 +736,33 @@ function ioptronMarkerRejectsNegativePoleDistance(logger as Test.Logger) {
 }
 
 (:test)
+function reticleMagnificationDirectionalEndpoints(logger as Test.Logger) {
+    return reticleMagnificationEndpoint(false, WatchUi.KEY_UP)
+        && reticleMagnificationEndpoint(true, WatchUi.KEY_UP)
+        && !reticleMagnificationEndpoint(true, WatchUi.KEY_DOWN)
+        && !reticleMagnificationEndpoint(false, WatchUi.KEY_DOWN)
+        && !reticleMagnificationEndpoint(false, WatchUi.KEY_ENTER)
+        && reticleMagnificationEndpoint(true, WatchUi.KEY_ENTER);
+}
+
+(:test)
+function reticleMagnificationAllowedOnlySupportedReticles(logger as Test.Logger) {
+    return reticleMagnificationAllowed(RETICLE_IOPTRON, true)
+        && reticleMagnificationAllowed(RETICLE_SIFO, true)
+        && !reticleMagnificationAllowed(RETICLE_GENERIC, true)
+        && !reticleMagnificationAllowed(RETICLE_IOPTRON, false)
+        && !reticleMagnificationAllowed(RETICLE_SIFO, false);
+}
+
+(:test)
+function reticleMagnificationCentersPivotAtSixTimesScale(logger as Test.Logger) {
+    return withinTolerance(magnifiedReticleCoordinate(123.0, 123.0, 109.0), 109.0, 0.0001)
+        && withinTolerance(magnifiedReticleCoordinate(124.0, 123.0, 109.0), 115.0, 0.0001)
+        && withinTolerance(magnifiedReticleCoordinate(88.0, 87.0, 130.0), 136.0, 0.0001);
+}
+
+
+(:test)
 function ioptronMarkerRejectsPoleDistanceAboveSeventy(logger as Test.Logger) {
     var point = [0.0, 0.0];
     return !ioptronMarkerPosition(point, 0.0, 0.0, 70.01, 227.0, 227.0, 170.0, 70.0)
@@ -773,10 +816,18 @@ class DisplayInputTestView {
     var taps = 0;
     var navigation = 0;
     var backs = 0;
+    var navigationCalls = 0;
+    var magnificationAllowed = false;
+    var magnified = false;
 
     function touchWakeOnly() { return screen == PolarFinderView.DISPLAY; }
     function tap(y) { taps += 1; }
-    function navigate(delta) { navigation += delta; }
+    function navigate(delta) { navigation += delta; navigationCalls += 1; }
+    function handleMagnificationKey(key) {
+        if (!magnificationAllowed) { return false; }
+        magnified = reticleMagnificationEndpoint(magnified, key);
+        return true;
+    }
     function select() {
         if (screen == PolarFinderView.DISPLAY) { screen = PolarFinderView.ACTIONS; }
     }
@@ -819,6 +870,60 @@ function displayDelegateSeparatesTouchFromPhysicalButtons(logger as Test.Logger)
     view.screen = PolarFinderView.DISPLAY;
     return delegate.handleKey(WatchUi.KEY_ESC)
         && view.screen == PolarFinderView.LOCATE;
+}
+
+(:test)
+function displayDelegateRoutesPhysicalMagnificationBeforeNavigation(logger as Test.Logger) {
+    var view = new DisplayInputTestView();
+    var delegate = new PolarFinderDelegate(view);
+    view.magnificationAllowed = true;
+    if (!delegate.handleKey(WatchUi.KEY_UP)
+            || !delegate.handleKey(WatchUi.KEY_UP)
+            || !view.magnified
+            || view.navigationCalls != 0
+            || !delegate.handleKey(WatchUi.KEY_DOWN)
+            || !delegate.handleKey(WatchUi.KEY_DOWN)
+            || view.magnified
+            || view.navigationCalls != 0) {
+        return false;
+    }
+    view.magnificationAllowed = false;
+    return delegate.handleKey(WatchUi.KEY_UP)
+        && delegate.handleKey(WatchUi.KEY_DOWN)
+        && view.navigationCalls == 2
+        && view.navigation == 0;
+}
+
+class AtmosphereReturnTestModel {
+    var saves = 0;
+
+    function savePreferences() { saves += 1; }
+}
+
+class AtmosphereReturnTestView extends PolarFinderView {
+    var opened = -1;
+    var testModel;
+
+    function initialize() {
+        testModel = new AtmosphereReturnTestModel();
+        PolarFinderView.initialize(testModel);
+    }
+
+    function open(screen) { opened = screen; }
+    function ensureFocusVisible() {}
+}
+
+(:test)
+function atmosphereExitReturnsToItsCallerAndSaves(logger as Test.Logger) {
+    var view = new AtmosphereReturnTestView();
+    view.openAtmosphere(PolarFinderView.ACTIONS);
+    view.closeAtmosphere();
+    if (view.opened != PolarFinderView.ACTIONS || view.testModel.saves != 1) {
+        return false;
+    }
+    view.openAtmosphere(PolarFinderView.LOCATE);
+    view.closeAtmosphere();
+    return view.opened == PolarFinderView.LOCATE && view.testModel.saves == 2;
 }
 
 class ActionsResumeTestModel {

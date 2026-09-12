@@ -92,6 +92,7 @@
   <string id="UtcTime">計算 UTC</string>
   <string id="SeaPressure">海平面氣壓</string>
   <string id="ObserverPressure">觀測點氣壓</string>
+  <string id="AtmosphereValue">數值</string>
   <string id="DataSource">氣壓來源</string>
   <string id="Geoid">大地水準面模型</string>
   <string id="GeoidProvenance">EGM96 15° 全球網格；雙線性插值</string>
@@ -101,27 +102,17 @@
   <string id="FullResult">完整結果</string>
   <string id="Estimated">估算</string>
   <string id="Barometer">氣壓計</string>
-  <string id="HelpLocation">
-    使用 GPS 或編輯緯度、經度和 MSL 海拔，然後確認。
-  </string>
-  <string id="HelpFormats">
-    十進制度保留 5 位小數；度分秒精確到整秒。切換格式不改變座標。
-  </string>
-  <string id="HelpGps">
-    Garmin 品質類別：良好、可用、較差、上次位置、無法使用。
-  </string>
+  <string id="HelpLocation">使用 GPS 或手動輸入位置，然後確認。</string>
+  <string id="HelpFormats">小數保留 5 位；度分秒取整秒。</string>
+  <string id="HelpGps">GPS 品質採用 Garmin 標準分級。</string>
   <string id="HelpAtmosphere">
-    自動使用氣壓計；手動輸入本地 hPa；關閉則不計算折射。
+    氣壓：自動/手動/關折射。預設 10°C、50%、0.55 um。
   </string>
-  <string id="HelpHour">
-    時角範圍 00:00:00–11:59:59，零點與十二點共用刻度。
-  </string>
+  <string id="HelpHour">時角範圍 00:00:00–11:59:59。</string>
   <string id="HelpPole">極距為 90° 減觀測赤緯。</string>
-  <string id="HelpEarth">
-    地球定向資料有固定有效期；到期後請更新應用程式。
-  </string>
+  <string id="HelpEarth">地球定向資料過期後請更新應用程式。</string>
   <string id="HelpReticle">
-    通用模式顯示數值；iOptron 顯示完整圖形；一思佛只顯示內圈。請將北極星置於綠色標記上。
+    極軸鏡：北極星對準綠標。上鍵：6 倍無字綠十字；下鍵：正常。
   </string>
   <string id="DiscardTitle">放棄變更？</string>
   <string id="Discard">放棄</string>

@@ -96,6 +96,7 @@
   <string id="UtcTime">Calculation UTC</string>
   <string id="SeaPressure">Sea-level pressure</string>
   <string id="ObserverPressure">Observer pressure</string>
+  <string id="AtmosphereValue">Value</string>
   <string id="DataSource">Pressure source</string>
   <string id="Geoid">Geoid model</string>
   <string id="GeoidProvenance">
@@ -107,33 +108,22 @@
   <string id="FullResult">Full result</string>
   <string id="Estimated">Estimated</string>
   <string id="Barometer">Barometer</string>
-  <string id="HelpLocation">
-    Use GPS or edit latitude, longitude and MSL elevation, then confirm.
-  </string>
-  <string id="HelpFormats">
-    Decimal uses 5 places. DMS uses whole arcseconds. Switching formats
-    preserves coordinates.
-  </string>
-  <string id="HelpGps">
-    Garmin reports Good, Usable, Poor, Last known, or Unavailable quality.
-  </string>
+  <string id="HelpLocation">Use GPS or enter a location, then confirm.</string>
+  <string id="HelpFormats">Decimal: 5 places. DMS: whole seconds.</string>
+  <string id="HelpGps">GPS quality uses Garmin's standard categories.</string>
   <string id="HelpAtmosphere">
-    Automatic uses the barometer; Manual uses local hPa; Off disables
-    refraction.
+    Pressure: auto/manual/off. Defaults: 10°C, 50%, 0.55 um.
   </string>
-  <string id="HelpHour">
-    Hour angle runs 00:00:00–11:59:59 and shares the zero/twelve reticle.
-  </string>
+  <string id="HelpHour">Hour angle runs from 00:00:00 to 11:59:59.</string>
   <string id="HelpPole">
     Pole distance is 90° minus observed declination.
   </string>
   <string id="HelpEarth">
-    Earth-orientation data has a fixed validity interval; update the app after
-    expiry.
+    Update the app when Earth-orientation data expires.
   </string>
   <string id="HelpReticle">
-    Choose Generic for numbers, iOptron for the full graphic, or Sifo for the
-    inner-only graphic. Place Polaris on the green marker.
+    Reticle: align Polaris with green. UP: text-free 6x green crosshair. DOWN:
+    normal.
   </string>
   <string id="DiscardTitle">Discard changes?</string>
   <string id="Discard">Discard</string>

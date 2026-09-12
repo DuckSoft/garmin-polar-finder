@@ -6,8 +6,11 @@ Implemented on all five supported device profiles. Automated geometry, persisten
 marker, multi-profile test, build, and package checks pass; physical-eyepiece
 visual verification remains a manual release check.
 
-The iOptron and Sifo variants add a static reticle and live Polaris marker to
-the existing result flow. They do not change the Generic numerical Display,
+The iOptron and Sifo variants add a reticle and live Polaris marker to the
+existing result flow. Their physical UP/DOWN controls provide an immediate,
+transient 6× magnified view and return to normal respectively; the magnified
+artwork is centered on the live marker and clipped at the
+physical display edge. They do not change the Generic numerical Display,
 astronomical calculation model, location entry, atmosphere handling, Actions,
 or Details destinations.
 
@@ -105,7 +108,26 @@ x = cx + rho * sin(H)
 y = cy + rho * cos(H)
 ```
 
-The marker updates once per second. The static reticle does not rotate or animate.
+The marker updates once per second. The reticle artwork is stationary in normal
+view; in magnified view it is transformed around the live marker, which remains
+fixed at the physical display center.
+
+## 6× magnified reticle view
+
+On iOptron and Sifo graphical Displays, physical UP enters the magnified view
+immediately and physical DOWN exits it. The renderer scales reticle coordinates
+and stroke widths by 6×: circles, crosshair, ticks, and the reticle structure
+enlarge together. The live green marker is the fixed physical-center anchor, so
+the surrounding artwork follows its current position; content outside the
+physical screen is clipped.
+
+All text is suppressed while magnified, including iOptron numerals,
+clock-position and pole-offset readouts, and warning overlays. A one-pixel
+full-screen green crosshair replaces the normal dot and marks the physical
+center. Magnification resets on every Display entry, fresh or periodic
+recalculation, invalid marker,
+and return from Actions. Generic never enters this mode; touch remains wake-only,
+and SELECT/BACK keep their existing behavior.
 
 The required cardinal checks are:
 
@@ -120,7 +142,10 @@ These checks are part of release verification against the physical eyepiece, not
 The September 2026 comparison reference reports `H = LST − RA` using equinox-based LST and a reported apparent RA. That mixes conventions with SOFA `atco13`'s CIO-based observed `hob`; the marker therefore remains driven by `hob` rather than being offset to reproduce the mixed subtraction. The reference's `H ≈ 19.34 h` still provides an independent clock conversion check: `C ≈ 8.33 h`.
 
 
-A pole distance outside the inclusive interval `[0, 70]` arcminutes is an explicit calculation error. The app must not clamp the value, draw a marker at the edge, or present the result as usable guidance.
+A pole distance outside the selected reticle's inclusive interval—`[0, 70]`
+arcminutes for iOptron or `[0, 44]` for Sifo—is an explicit calculation error.
+The app must not clamp the value, draw a marker at the edge, or present the
+result as usable guidance.
 
 ## Visual style and render order
 
@@ -163,9 +188,11 @@ The selected option determines the Display variant after a successful calculatio
   remain shared.
 
 On either graphical Display, START/Select opens the existing Actions menu; touch
-(tap or swipe) is wake-only and triggers no app action. BACK returns directly to
-Locate, matching Generic. Returning from Actions restores the selected Display
-variant under the existing result-freshness rules.
+(tap or swipe) is wake-only and triggers no app action. On iOptron and Sifo,
+physical UP enters the transient 6× marker-centered view and DOWN restores the
+normal view. BACK returns directly to Locate, matching Generic. Returning from
+Actions restores the selected Display variant under the existing result-freshness
+rules and clears magnification.
 
 ## State and lifecycle
 
@@ -176,9 +203,11 @@ or invalid selection resolves to Generic.
 Both graphical Displays follow the existing Display lifecycle contract:
 
 - their markers update once per second from the authoritative calculation timestamp;
-- periodic full recalculation re-anchors the result;
+- periodic full recalculation re-anchors the result and clears magnification;
 - UTC discontinuity triggers recalculation;
 - inactive/resume handling must not briefly show stale guidance;
+- entering Display, receiving an invalid marker, or returning from Actions clears
+  magnification;
 - leaving Display restores normal power behavior.
 
 When calculation or freshness state does not permit a valid result, the app does not draw a plausible marker.
@@ -196,7 +225,8 @@ The **Reticle**, **Generic**, **iOptron**, and **Sifo** menu strings, short warn
 
 ## Edge cases
 
-- Exactly `0` or `70` arcminutes is valid and follows the same mapping equation.
+- Exactly `0` or the selected reticle's maximum (`70` arcminutes for iOptron,
+  `44` for Sifo) is valid and follows the same mapping equation.
 - A non-finite hour angle, pole distance, timestamp, or elapsed-time input is a calculation error; no marker is drawn.
 - Hour-angle wrap uses `normalize2pi`, preserving a continuous path across 24 h.
 - The marker may overlap retained reticle strokes; on iOptron it may also overlap numerals. The black halo preserves its boundary.
@@ -214,8 +244,8 @@ The **Reticle**, **Generic**, **iOptron**, and **Sifo** menu strings, short warn
 - iOptron accepts pole distances through 70′; Sifo accepts exactly through 44′. Values just above the selected maximum produce the existing range error without clamping, drawing, or a clipped marker.
 - Reticle strokes and text use Garmin full red `0xFF0000`; the marker has a black halo and high-brightness Garmin green fill scaled for the active display profile.
 - The marker uses full observed hour angle and the stated sidereal update and mapping equations, updating once per second.
-- START/Select opens the existing Actions menu, touch is wake-only with no app action, and BACK returns to Locate.
-- A valid result with an active warning renders exactly one short top overlay that does not cover the marker; Details contains the full explanation.
+- START/Select opens the existing Actions menu, touch is wake-only with no app action, and BACK returns to Locate; on iOptron and Sifo, physical UP enters immediate transient 6× marker-centered magnification and DOWN exits it. Magnified mode clips artwork at the physical edge, hides all text, and replaces the centered dot with a one-pixel full-screen green crosshair.
+- In normal view, a valid result with an active warning renders exactly one short top overlay that does not cover the marker; Details contains the full explanation. Magnified view suppresses that text.
 - The result remains readable by shape, position, and contrast without relying on color alone.
 
 ## Verification plan
@@ -230,7 +260,9 @@ On the `454×454` Forerunner 965 simulator:
 4. Feed known valid calculations for `0 h`, `6 h`, `12 h`, and `18 h`; verify bottom, right, top, and left marker positions at the expected radius.
 5. Observe the marker for multiple one-second updates and across the 24-hour normalization boundary.
 6. Exercise warning overlay, Details, Actions, BACK, inactive/resume, UTC discontinuity, and periodic recalculation behavior.
-7. Verify values just below `0` and just above `70` arcminutes produce a calculation error and no marker; verify both endpoints remain valid.
+7. For both reticles, verify values just below `0` and just above the selected
+   maximum (`70` arcminutes for iOptron, `44` for Sifo) produce a calculation
+   error and no marker; verify both endpoints remain valid.
 8. Review English, Simplified Chinese, and Traditional Chinese menu, warning, error, Details, and Help layouts when localization resources are implemented.
 
 ### Physical watch and eyepiece

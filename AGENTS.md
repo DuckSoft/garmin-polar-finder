@@ -22,6 +22,7 @@ This repository contains a Garmin Connect IQ watch app targeting the Forerunner 
 - Keep signing keys outside the repository. Never commit PEM or DER files.
 - Add permissions only when required by an agreed feature. `Positioning` is reserved for the planned GPS-based celestial-time calculation.
 - Keep English, Simplified Chinese, and Traditional Chinese strings synchronized.
+- Before adding a non-ASCII character to any watch-visible string, verify that Garmin's runtime font renders it on every supported display family and language. Do not infer glyph coverage from desktop fonts or successful compilation; use an existing verified glyph or an ASCII fallback otherwise.
 - Regenerate launcher PNGs from `artwork/launcher-icon.svg` with `make build`; ImageMagick produces the 65×65 AMOLED resource and family-qualified dithered 40×40 MIP resources.
 
 ## Verification

@@ -56,6 +56,12 @@ On the Forerunner 965:
   no app action. Actions still open with Start/Select, and Back still returns to
   Locate.
 
+On iOptron and Sifo result Displays, physical **UP** immediately enters a
+transient 6× magnified view centered on the live green marker; physical
+**DOWN** restores normal view. Magnified mode hides all text and replaces the
+dot with a one-pixel full-screen green crosshair. Generic is unchanged. SELECT
+and BACK retain their existing actions, and no mode chrome is shown.
+
 Focused controls use more than color: a high-contrast outline, a slight background fill, and a shape or positional marker. No important state is communicated through color alone.
 
 Back navigation is hierarchical:
@@ -79,9 +85,16 @@ Calculate and all three Display variants use a dark-site presentation:
 - warnings and focus states distinguishable without color alone;
 - no white full-screen flashes.
 
-Each Display variant has a fixed layout. No burn-in mitigation movement is required.
+Each Display variant has a fixed base layout. iOptron and Sifo may transiently
+magnify their text-free reticle geometry, ticks, and stroke widths by 6× around
+the live marker, clipped at the physical display edge. A one-pixel full-screen
+green crosshair replaces the normal dot and marks the physical center.
+Numerals, readouts, and warnings are hidden until normal view is restored; no
+burn-in mitigation movement is required.
 
-All screens and messages ship in English, Simplified Chinese, and Traditional Chinese. Layouts must accommodate the longest translation. Numerical notation and astronomical symbols may remain language-neutral.
+Magnification resets on every Display entry, fresh or periodic recalculation,
+invalid marker, and return from Actions. Touch remains wake-only on result
+Displays.
 
 One shared view and input state machine serves all devices. `DisplayProfile` is
 cached from the drawing context during layout and supplies the display center,
@@ -117,8 +130,12 @@ The app persists only confirmed inputs and preferences:
 - last confirmed location;
 - coordinate-format preference;
 - reticle preference;
+
 - atmospheric overrides and pressure mode;
 - calculation-alert preference.
+
+The magnified state is not persisted. It is cleared whenever Display is entered,
+recalculated, receives an invalid marker, or returns from Actions.
 
 It does not persist active GPS acquisition, partial edits, progress, calculated results, or transient warnings. Relaunch always returns to Locate rather than restoring time-sensitive results.
 
@@ -217,6 +234,12 @@ Defaults:
 
 Temperature and humidity may be manually overridden and persist. Wrist temperature is not treated as ambient air temperature.
 
+Observer pressure appears only in Manual mode; the remaining rows reflow
+without an empty slot. Wavelength is informational and is skipped by button
+focus. Every pressure-mode, edit-state, and calculation-alert change redraws
+immediately. Done and Back save preferences, return to the screen that opened
+Atmosphere, and restore focus to its Atmosphere entry.
+
 ### Pressure
 
 Live pressure uses the watch's built-in barometer through `Toybox.Sensor`. This requires the manifest's `Sensor` permission in addition to the existing `Positioning` permission.
@@ -286,11 +309,11 @@ Retries are never automatic except for the defined restart after app interruptio
 
 ### Information hierarchy
 
-The selected Reticle preference determines the fixed result layout:
+The selected Reticle preference determines the fixed base result layout:
 
 - **Generic** retains the current numerical Display unchanged: hour angle as the largest value, pole distance, local date and time, and compact location, provenance, or warning status.
-- **iOptron** uses the full static reticle, including both tick bands and the 1–12 numerals, with a live marker and two compact knocked-out readouts.
-- **Sifo** uses the same shared graphic renderer but omits the complete outer 60–70 arcminute ring/tick band and all 1–12 numerals. Its angular scale expands so the retained 44′ circle occupies the same safe screen radius as iOptron's 70′ circle.
+- **iOptron** uses the full reticle artwork, including both tick bands and the 1–12 numerals, with a live marker and two compact knocked-out readouts. Physical UP can transiently magnify its geometry 6× around the marker while hiding all text and replacing the dot with a full-screen green crosshair; DOWN restores normal view.
+- **Sifo** uses the same shared graphic renderer but omits the complete outer 60–70 arcminute ring/tick band and all 1–12 numerals. Its angular scale expands so the retained 44′ circle occupies the same safe screen radius as iOptron's 70′ circle. Its artwork has the same transient UP/DOWN magnification behavior.
 
 The Generic numerical Display presents hour angle as `HH:MM:SS` modulo 12 hours, pole distance as `MM′ SS″`, and local time according to the watch's 12/24-hour preference. In 12-hour local-time mode, a localized AM/PM marker is shown. The Generic hour-angle text format is independent of the watch clock preference.
 
@@ -305,24 +328,29 @@ While visible:
 - local time on the Generic Display updates once per second;
 - Generic hour-angle text and both graphical markers advance from the authoritative calculation timestamp at the sidereal rate, approximately `1.0027379` hour-angle seconds per SI second;
 - pole distance remains fixed for the display session;
-- a periodic full recalculation re-anchors the result and prevents timer drift.
+- a periodic full recalculation re-anchors the result and clears any magnified state.
 
 A system UTC discontinuity discards accumulated offsets and triggers recalculation. A timezone change affects local-time formatting immediately.
 
 When returning from an inactive state, the app does not briefly present stale values as current. It dims or marks them unavailable, performs a full recalculation, and restores them only when fresh.
 
-The app remains active while foregrounded, permits normal dimming, and restores normal power behavior when leaving Display. Both graphical reticles are static; their marker and clock-position readout update once per second.
+The app remains active while foregrounded, permits normal dimming, and restores
+normal power behavior when leaving Display. Both graphical reticles remain
+stationary in normal view; their marker and clock-position readout update once
+per second. In magnified view, reticle coordinates and stroke widths scale 6×
+around the live marker; a one-pixel full-screen green crosshair marks the
+physical center, content is clipped at the physical edge, and all text is hidden.
 
 ### Actions
 
-On any Display variant, START/Select opens the existing compact action menu. Touch (tap or swipe) on the Display is wake-only and triggers no app action:
+On any Display variant, START/Select opens the existing compact action menu.
+Touch (tap or swipe) on the Display is wake-only and triggers no app action.
+Physical UP/DOWN magnification applies only to iOptron and Sifo; UP enters
+immediately and DOWN exits. There are no hidden per-value tap shortcuts. Back
+returns directly to the location review.
 
-- Recalculate;
-- Location;
-- Atmosphere;
-- Details.
-
-There are no hidden per-value tap shortcuts. Back returns directly to the location review.
+The transient magnified state is cleared on Display entry, recalculation,
+invalid marker, or return from Actions.
 
 On a valid iOptron or Sifo result with an active warning, the graphic must render exactly one short overlay at the top, and the overlay must not cover the marker. The full warning and diagnostic explanation appears in Details. Pole distance outside the selected reticle's inclusive range is an explicit calculation error: `[0, 70]` arcminutes for iOptron and `[0, 44]` for Sifo. It is not clamped, and no result or silently clipped marker is shown. This range error uses the existing calculation-error actions—Back to location, Try again where applicable, and Details—rather than introducing another screen.
 
