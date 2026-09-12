@@ -27,14 +27,10 @@ jobs:
         run: make lint
 
   test:
-    name: Test ${{ matrix.device }}
+    name: Test all profiles
     needs: validate
     runs-on: ubuntu-22.04
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        device: [fr255s, fr255, fr965]
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -55,18 +51,13 @@ jobs:
         run: |
           openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out "$RUNNER_TEMP/test-key.pem"
           openssl pkcs8 -topk8 -inform PEM -outform DER -in "$RUNNER_TEMP/test-key.pem" -out "$RUNNER_TEMP/test-key.der" -nocrypt
-      - name: Compile unit tests
+      - name: Run unit tests for all profiles
         shell: bash
-        run: >-
-          monkeyc
-          -t
-          -d "${{ matrix.device }}"
-          -f "monkey.jungle:test.jungle"
-          -o "$RUNNER_TEMP/PolarFinder-tests-${{ matrix.device }}.prg"
-          -y "$RUNNER_TEMP/test-key.der"
-      - name: Run unit tests
-        shell: bash
-        run: bash tests/run-simulator-tests.sh "$RUNNER_TEMP/PolarFinder-tests-${{ matrix.device }}.prg" "${{ matrix.device }}"
+        run: |
+          bash tests/run-simulator-tests.sh \
+            make SHELL=bash SDK_HOME="$CONNECT_IQ_HOME" \
+            DEVELOPER_KEY="$RUNNER_TEMP/test-key.der" \
+            ICONS= test-profiles
 
   build:
     name: Build all devices
