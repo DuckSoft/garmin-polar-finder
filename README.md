@@ -1,3 +1,5 @@
+<img src="banner.jpg" alt="Polar Finder banner" width="100%">
+
 # Polar Finder
 
 A Garmin Connect IQ watch app for polar alignment on the Forerunner 255 family
