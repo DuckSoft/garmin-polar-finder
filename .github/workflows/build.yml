@@ -93,7 +93,9 @@ jobs:
       - name: Compile PRGs
         shell: bash
         run: |
-          make SDK_HOME="$(dirname "$(dirname "$(command -v monkeyc)")")" \
+          jobs=$(( $(nproc) / 2 ))
+          if (( jobs < 1 )); then jobs=1; fi
+          make -j"$jobs" SDK_HOME="$(dirname "$(dirname "$(command -v monkeyc)")")" \
             DEVELOPER_KEY="$GITHUB_WORKSPACE/$CIQ_KEY_PATH" \
             build-all
       - name: Remove signing key
@@ -107,34 +109,34 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PolarFinder-fr255
-          path: bin/PolarFinder-fr255.prg
+          path: bin/fr255/PolarFinder-fr255.prg
           if-no-files-found: error
           retention-days: 14
       - name: Upload fr255s PRG
         uses: actions/upload-artifact@v4
         with:
           name: PolarFinder-fr255s
-          path: bin/PolarFinder-fr255s.prg
+          path: bin/fr255s/PolarFinder-fr255s.prg
           if-no-files-found: error
           retention-days: 14
       - name: Upload fr255m PRG
         uses: actions/upload-artifact@v4
         with:
           name: PolarFinder-fr255m
-          path: bin/PolarFinder-fr255m.prg
+          path: bin/fr255m/PolarFinder-fr255m.prg
           if-no-files-found: error
           retention-days: 14
       - name: Upload fr255sm PRG
         uses: actions/upload-artifact@v4
         with:
           name: PolarFinder-fr255sm
-          path: bin/PolarFinder-fr255sm.prg
+          path: bin/fr255sm/PolarFinder-fr255sm.prg
           if-no-files-found: error
           retention-days: 14
       - name: Upload fr965 PRG
         uses: actions/upload-artifact@v4
         with:
           name: PolarFinder-fr965
-          path: bin/PolarFinder-fr965.prg
+          path: bin/fr965/PolarFinder-fr965.prg
           if-no-files-found: error
           retention-days: 14

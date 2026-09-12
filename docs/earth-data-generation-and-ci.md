@@ -161,12 +161,10 @@ an unsigned substitute. The key is not printed or interpolated into the shell
 program.
 
 The decoded DER lives in a unique ignored `.ci-developer-key.*.der` file within
-the checkout, with mode `600`. The Docker build action needs a workspace-local
-file because the workspace is mounted into its container; a host-only temporary
-directory is not sufficient. The relative path is passed through `GITHUB_ENV`
-to the action's `developerKey` input. An `if: always()` cleanup step removes
-the key after compilation, including failed builds. Artifact upload selects
-only the expected PRG file.
+the checkout, with mode `600`. Its relative path is passed through `GITHUB_ENV`
+as `CIQ_KEY_PATH`; Make receives the full path through `DEVELOPER_KEY`.
+An `if: always()` cleanup step removes the key after compilation, including
+failed builds. Artifact upload selects only the expected PRG file.
 
 External actions use version tags:
 
@@ -174,19 +172,22 @@ External actions use version tags:
 | --- | --- |
 | `actions/checkout` | `v4` |
 | `astral-sh/setup-uv` | `v10.0.1` |
-| `blackshadev/garmin-connectiq-build-action` | `9.2.0` |
+| `actions/setup-java` | `v4` |
+| `DuckSoft/setup-connectiq-actions` | `v2` |
 | `actions/upload-artifact` | `v4` |
 
-setup-uv installs uv **0.12.12**. The Garmin action's 9.2.0 tag identifies the
-action release; its embedded tools image is currently **9.1.1**, so the action
-tag must not be described as SDK 9.2.0. Version tags and the Garmin action's
-transitive container image tag can change upstream; review both implementations
-when updating or rerunning the workflow.
+setup-uv installs uv **0.12.12**. The Connect IQ setup action installs SDK
+**9.2.0**, and setup-java selects Java **17**.
 
-The build matrix contains exactly `fr255`, `fr255s`, `fr255m`, `fr255sm`, and
-`fr965`. Each independent job compiles `monkey.jungle` with `typeCheck: '0'`,
-matching the project's current type-check setting. `fail-fast: false` allows
-the remaining device jobs to finish if one fails. Each successful job uploads
-`bin/PolarFinder-<device>.prg` as `PolarFinder-<device>`, fails the upload if that
-file is absent, and retains the artifact for **14 days**. This workflow compiles
-device PRGs; simulator tests remain a separate local command.
+Both workflows run representative simulator tests on one Ubuntu 22.04 runner
+before building. The simulator wrapper runs `make test-profiles` in one
+simulator session, testing `fr255s`, `fr255`, then `fr965`. This target forces
+serial execution even when Make receives `-j`; a failed profile stops the
+remaining tests and blocks the build.
+
+The build job runs `make build-all` for `fr255`, `fr255s`, `fr255m`, `fr255sm`,
+and `fr965`. Its parallel job count is half of `nproc`, rounded down, with a
+minimum of one. Each compiler writes to `bin/<device>/` to isolate generated
+state as well as the PRG. The job uploads
+`bin/<device>/PolarFinder-<device>.prg` as `PolarFinder-<device>`, fails the
+upload if that file is absent, and retains the artifact for **14 days**.
