@@ -28,11 +28,11 @@ jobs:
       - name: Check formatting
         run: make lint
 
-  test:
-    name: Test all profiles
+  build:
+    name: Build all devices and test all profiles
     needs: validate
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -48,39 +48,8 @@ jobs:
         with:
           sdk-version: '9.2.0'
           install-simulator-dependencies: 'true'
-      - name: Create test developer key
-        shell: bash
-        run: |
-          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out "$RUNNER_TEMP/test-key.pem"
-          openssl pkcs8 -topk8 -inform PEM -outform DER -in "$RUNNER_TEMP/test-key.pem" -out "$RUNNER_TEMP/test-key.der" -nocrypt
-      - name: Run unit tests for all profiles
-        shell: bash
-        run: |
-          bash tests/run-simulator-tests.sh \
-            make SHELL=bash SDK_HOME="$CONNECT_IQ_HOME" \
-            DEVELOPER_KEY="$RUNNER_TEMP/test-key.der" \
-            ICONS= test-profiles
-
-  build:
-    name: Build all devices
-    needs: test
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Set up ConnectIQ SDK
-        uses: DuckSoft/setup-connectiq-actions@v2
-        with:
-          sdk-version: '9.2.0'
       - name: Prepare signing key and output directory
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         env:
           CIQ_DEVELOPER_KEY: ${{ secrets.CIQ_DEVELOPER_KEY }}
@@ -93,11 +62,12 @@ jobs:
           test -s "$key_file"
           mkdir -p bin
       - name: Compile PRGs
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         run: |
           jobs=$(( $(nproc) / 2 ))
           if (( jobs < 1 )); then jobs=1; fi
-          make -j"$jobs" SDK_HOME="$(dirname "$(dirname "$(command -v monkeyc)")")" \
+          make -j"$jobs" SDK_HOME="$CONNECT_IQ_HOME" \
             DEVELOPER_KEY="$GITHUB_WORKSPACE/$CIQ_KEY_PATH" \
             build-all
       - name: Remove signing key
@@ -107,38 +77,23 @@ jobs:
           if [[ -n "${CIQ_KEY_PATH:-}" ]]; then
             rm -f -- "$GITHUB_WORKSPACE/$CIQ_KEY_PATH"
           fi
-      - name: Upload fr255 PRG
+      - name: Create test developer key
+        shell: bash
+        run: |
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out "$RUNNER_TEMP/test-key.pem"
+          openssl pkcs8 -topk8 -inform PEM -outform DER -in "$RUNNER_TEMP/test-key.pem" -out "$RUNNER_TEMP/test-key.der" -nocrypt
+      - name: Run unit tests for all profiles
+        shell: bash
+        run: |
+          bash tests/run-simulator-tests.sh \
+            make SHELL=bash SDK_HOME="$CONNECT_IQ_HOME" \
+            DEVELOPER_KEY="$RUNNER_TEMP/test-key.der" \
+            ICONS= test-profiles
+      - name: Upload all device PRGs
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@v7
         with:
-          name: PolarFinder-fr255
-          path: bin/fr255/PolarFinder-fr255.prg
-          if-no-files-found: error
-          retention-days: 14
-      - name: Upload fr255s PRG
-        uses: actions/upload-artifact@v7
-        with:
-          name: PolarFinder-fr255s
-          path: bin/fr255s/PolarFinder-fr255s.prg
-          if-no-files-found: error
-          retention-days: 14
-      - name: Upload fr255m PRG
-        uses: actions/upload-artifact@v7
-        with:
-          name: PolarFinder-fr255m
-          path: bin/fr255m/PolarFinder-fr255m.prg
-          if-no-files-found: error
-          retention-days: 14
-      - name: Upload fr255sm PRG
-        uses: actions/upload-artifact@v7
-        with:
-          name: PolarFinder-fr255sm
-          path: bin/fr255sm/PolarFinder-fr255sm.prg
-          if-no-files-found: error
-          retention-days: 14
-      - name: Upload fr965 PRG
-        uses: actions/upload-artifact@v7
-        with:
-          name: PolarFinder-fr965
-          path: bin/fr965/PolarFinder-fr965.prg
+          name: PolarFinder-all-devices
+          path: bin/*/PolarFinder-*.prg
           if-no-files-found: error
           retention-days: 14
