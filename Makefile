@@ -1,4 +1,6 @@
+ifeq ($(origin SDK_HOME), undefined)
 SDK_HOME := $(shell cat "$(HOME)/Library/Application Support/Garmin/ConnectIQ/current-sdk.cfg")
+endif
 MONKEYC := $(SDK_HOME)/bin/monkeyc
 MONKEYDO := $(SDK_HOME)/bin/monkeydo
 CONNECTIQ := $(SDK_HOME)/bin/connectiq
@@ -7,7 +9,8 @@ UV ?= uv
 DEVICE ?= fr965
 DEVICES := fr255 fr255s fr255m fr255sm fr965
 TEST_DEVICES := fr255s fr255 fr965
-OUTPUT := bin/PolarFinder-$(DEVICE).prg
+# The compiler writes intermediate files beside its output; isolate each device.
+OUTPUT := bin/$(DEVICE)/PolarFinder-$(DEVICE).prg
 TEST_OUTPUT := bin/PolarFinder-tests-$(DEVICE).prg
 PACKAGE_OUTPUT := bin/PolarFinder.iq
 ICON_454 := resources/drawables/launcher_icon.png
@@ -18,20 +21,17 @@ ICONS := $(ICON_454) $(ICON_218) $(ICON_260)
 
 .PHONY: build build-all package simulator run lint test test-profiles clean icons generate-iers check-generated update-iers $(DEVICES:%=build-%) $(TEST_DEVICES:%=test-%)
 
-# The SDK compiler uses shared generated state and is not safe to run concurrently.
-.NOTPARALLEL:
-
 icons: $(ICONS)
 
 build: $(ICONS)
-	mkdir -p bin
+	mkdir -p "$(dir $(OUTPUT))"
 	"$(MONKEYC)" -d "$(DEVICE)" -f monkey.jungle -o "$(OUTPUT)" -y "$(DEVELOPER_KEY)"
 
 build-all: $(DEVICES:%=build-%)
 
 $(DEVICES:%=build-%): build-%: $(ICONS)
-	mkdir -p bin
-	"$(MONKEYC)" -d "$*" -f monkey.jungle -o "bin/PolarFinder-$*.prg" -y "$(DEVELOPER_KEY)"
+	mkdir -p "bin/$*"
+	"$(MONKEYC)" -d "$*" -f monkey.jungle -o "bin/$*/PolarFinder-$*.prg" -y "$(DEVELOPER_KEY)"
 
 package: $(ICONS)
 	mkdir -p bin
@@ -55,7 +55,9 @@ test: $(ICONS)
 		echo "monkeydo returned $$runner after a validated passing summary; accepting known test-runner status quirk." >&2; \
 	fi
 
-test-profiles: $(TEST_DEVICES:%=test-%)
+# MonkeyDo clients share one simulator; serialize even when the caller uses -j.
+test-profiles:
+	$(MAKE) --no-print-directory -j1 $(TEST_DEVICES:%=test-%)
 
 $(TEST_DEVICES:%=test-%): test-%:
 	$(MAKE) --no-print-directory DEVICE="$*" test

@@ -3,17 +3,12 @@ set -euo pipefail
 
 : "${CONNECT_IQ_HOME:?CONNECT_IQ_HOME must be set}"
 
-if (( $# != 2 )); then
-    echo "Usage: $0 app.prg device_id" >&2
+if (( $# < 1 )); then
+    printf 'Usage: %s command [args...]\n' "$0" >&2
     exit 2
 fi
 
-if [[ ! -f "$1" ]]; then
-    echo "::error::Compiled application not found at $1." >&2
-    exit 1
-fi
-
-for command_name in timeout xvfb-run dbus-run-session tee grep; do
+for command_name in timeout xvfb-run dbus-run-session tee; do
     command_path="$(command -v "$command_name" || true)"
     if [[ -z "$command_path" ]]; then
         echo "::error::Required command not found: $command_name." >&2
@@ -30,10 +25,12 @@ for sdk_executable in simulator monkeydo; do
     fi
 done
 
-echo "::debug::Simulator test configuration: SDK=$CONNECT_IQ_HOME app=$1 device=$2"
+printf '::debug::Simulator test configuration: SDK=%q command=' "$CONNECT_IQ_HOME"
+printf ' %q' "$@"
+printf '\n'
 
-# Keep simulator, D-Bus, and monkeydo inside the same virtual display session.
-exec timeout --signal=TERM --kill-after=10s 180s \
+# Keep simulator, D-Bus, and the test command inside the same virtual display session.
+exec timeout --signal=TERM --kill-after=10s 540s \
     xvfb-run -a -s "-screen 0 1280x1024x24" dbus-run-session -- \
     bash -euo pipefail -c '
         log_dir="$(mktemp -d)"
@@ -86,22 +83,5 @@ exec timeout --signal=TERM --kill-after=10s 180s \
             exit 1
         fi
 
-        # SDK 9.2.0 can return nonzero after reporting a valid passing result.
-        # Preserve tee failures, but use the final MonkeyDo summary as the test result.
-        echo "::debug::Running MonkeyDo for device $2"
-        set +e
-        "$CONNECT_IQ_HOME/bin/monkeydo" "$1" "$2" -t 2>&1 | tee "$log_dir/tests.log"
-        pipeline_status=("${PIPESTATUS[@]}")
-        set -e
-        echo "::debug::MonkeyDo exit status: ${pipeline_status[0]}; tee exit status: ${pipeline_status[1]}"
-        if (( pipeline_status[1] != 0 )); then
-            echo "::error::Failed to capture MonkeyDo output (tee exited ${pipeline_status[1]})." >&2
-            exit "${pipeline_status[1]}"
-        fi
-        if grep -Eq "^PASSED \\(passed=[1-9][0-9]*, failed=0, errors=0\\)[[:space:]]*$" "$log_dir/tests.log"; then
-            echo "::debug::Verified passing MonkeyDo result summary"
-        else
-            echo "::error::MonkeyDo did not report a passing test summary." >&2
-            exit 1
-        fi
-    ' bash "$1" "$2"
+        "$@"
+    ' bash "$@"

@@ -36,7 +36,7 @@ make generate-iers              # regenerate IERS source from the checked-in sna
 make update-iers                # explicitly download and replace the IERS snapshot
 make build                      # compile DEVICE (fr965 by default)
 make DEVICE=fr255s build        # compile one selected profile
-make build-all                  # compile collision-free PRGs for all five devices
+make -j5 build-all              # compile all five devices in parallel
 make package                    # export one all-device PolarFinder.iq package
 make simulator
 make DEVICE=fr255 run           # launch in the matching running simulator
@@ -47,7 +47,11 @@ make clean
 
 `make simulator` starts Garmin's simulator. Run it before `make run` or
 `make test`. Single-device builds, runs, and tests honor `DEVICE`; artifacts are
-device-qualified under `bin/`, so profiles do not overwrite one another.
+written to `bin/<device>/PolarFinder-<device>.prg`, with compiler intermediates
+isolated per device so parallel builds do not share generated state.
+Test PRGs remain at `bin/PolarFinder-tests-<device>.prg`.
+`make test-profiles` serializes all three profiles even when invoked with `-j`,
+because MonkeyDo clients share one simulator.
 `make lint` needs no install step; `npx` runs the exactly pinned Prettier and
 XML plugin versions. Launcher PNGs are regenerated from
 `artwork/launcher-icon.svg` when it changes: 65×65 for the 965 and dithered
@@ -67,8 +71,10 @@ The astrometry calculation uses bundled, read-only reference data:
 `source/GeoidData.mc` is handwritten; `source/IersEopData.mc` is generated from
 the single checked-in `data/iers/finals2000A-YYYY-MM-DD.txt` snapshot. Ordinary
 builds and CI do not refresh IERS data. See
-[Earth-data generation and CI](docs/earth-data-generation-and-ci.md) for ownership,
-reproducible generation, the explicit update procedure, and CI signing security.
+[Earth-data generation](docs/earth-data-generation.md) for ownership,
+reproducible generation, and the explicit update procedure.
+See [CI trust and build contract](docs/ci.md) for workflow triggers, signing
+security, simulator tests, and build artifacts.
 
 ## Languages
 

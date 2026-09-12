@@ -2,6 +2,8 @@ name: Build
 
 on:
   push:
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
 
@@ -26,15 +28,11 @@ jobs:
       - name: Check formatting
         run: make lint
 
-  test:
-    name: Test ${{ matrix.device }}
+  build:
+    name: Build all devices and test all profiles
     needs: validate
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        device: [fr255s, fr255, fr965]
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -50,39 +48,8 @@ jobs:
         with:
           sdk-version: '9.2.0'
           install-simulator-dependencies: 'true'
-      - name: Create test developer key
-        shell: bash
-        run: |
-          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out "$RUNNER_TEMP/test-key.pem"
-          openssl pkcs8 -topk8 -inform PEM -outform DER -in "$RUNNER_TEMP/test-key.pem" -out "$RUNNER_TEMP/test-key.der" -nocrypt
-      - name: Compile unit tests
-        shell: bash
-        run: >-
-          monkeyc
-          -t
-          -d "${{ matrix.device }}"
-          -f "monkey.jungle:test.jungle"
-          -o "$RUNNER_TEMP/PolarFinder-tests-${{ matrix.device }}.prg"
-          -y "$RUNNER_TEMP/test-key.der"
-      - name: Run unit tests
-        shell: bash
-        run: bash tests/run-simulator-tests.sh "$RUNNER_TEMP/PolarFinder-tests-${{ matrix.device }}.prg" "${{ matrix.device }}"
-
-  build:
-    name: Build ${{ matrix.device }}
-    needs: test
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        device: [fr255, fr255s, fr255m, fr255sm, fr965]
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
       - name: Prepare signing key and output directory
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         env:
           CIQ_DEVELOPER_KEY: ${{ secrets.CIQ_DEVELOPER_KEY }}
@@ -94,14 +61,15 @@ jobs:
           printf '%s' "$CIQ_DEVELOPER_KEY" | base64 --decode > "$key_file"
           test -s "$key_file"
           mkdir -p bin
-      - name: Compile PRG
-        uses: blackshadev/garmin-connectiq-build-action@9.2.0
-        with:
-          developerKey: ${{ env.CIQ_KEY_PATH }}
-          projectJungle: monkey.jungle
-          typeCheck: '0'
-          device: ${{ matrix.device }}
-          outputPath: bin/PolarFinder-${{ matrix.device }}.prg
+      - name: Compile PRGs
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        shell: bash
+        run: |
+          jobs=$(( $(nproc) / 2 ))
+          if (( jobs < 1 )); then jobs=1; fi
+          make -j"$jobs" SDK_HOME="$CONNECT_IQ_HOME" \
+            DEVELOPER_KEY="$GITHUB_WORKSPACE/$CIQ_KEY_PATH" \
+            build-all
       - name: Remove signing key
         if: always()
         shell: bash
@@ -109,10 +77,23 @@ jobs:
           if [[ -n "${CIQ_KEY_PATH:-}" ]]; then
             rm -f -- "$GITHUB_WORKSPACE/$CIQ_KEY_PATH"
           fi
-      - name: Upload PRG
-        uses: actions/upload-artifact@v4
+      - name: Create test developer key
+        shell: bash
+        run: |
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out "$RUNNER_TEMP/test-key.pem"
+          openssl pkcs8 -topk8 -inform PEM -outform DER -in "$RUNNER_TEMP/test-key.pem" -out "$RUNNER_TEMP/test-key.der" -nocrypt
+      - name: Run unit tests for all profiles
+        shell: bash
+        run: |
+          bash tests/run-simulator-tests.sh \
+            make SHELL=bash SDK_HOME="$CONNECT_IQ_HOME" \
+            DEVELOPER_KEY="$RUNNER_TEMP/test-key.der" \
+            ICONS= test-profiles
+      - name: Upload all device PRGs
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@v7
         with:
-          name: PolarFinder-${{ matrix.device }}
-          path: bin/PolarFinder-${{ matrix.device }}.prg
+          name: PolarFinder-all-devices
+          path: bin/*/PolarFinder-*.prg
           if-no-files-found: error
           retention-days: 14

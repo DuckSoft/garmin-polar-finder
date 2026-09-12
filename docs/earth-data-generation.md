@@ -1,4 +1,4 @@
-# Earth-data generation and CI
+# Earth-data generation
 
 ## Ownership and runtime contract
 
@@ -134,59 +134,3 @@ interrupt installation deliberately.
 To undo a completed refresh, restore the prior snapshot and generated module
 together from version control, then run `make check-generated`. Restoring the
 previous generator as well is necessary when its output contract changed.
-
-## CI trust and build contract
-
-`.github/workflows/build.yml` runs on pushes, pull requests, and manual dispatch.
-The validation job runs `make check-generated` and `make lint` without a signing
-secret. CI never runs the IERS updater: it verifies the committed snapshot and
-generated module, so passing a build cannot silently change the data window.
-Installing actions, uv, formatting packages, and build tools may use the network;
-this is separate from refreshing IERS reference data.
-
-The workflow grants only `contents: read` and disables checkout credential
-persistence. It uses `pull_request`, not `pull_request_target`. Fork pull
-requests run validation but skip the signed build job entirely. Pushes, manual
-dispatches, and same-repository pull requests run signed builds after validation
-passes. These are trusted code paths: contributors able to modify code or
-workflows on same-repository branches must be trusted with the signing secret.
-The fork gate does not make malicious same-repository changes safe.
-
-Configure the repository Actions secret `CIQ_DEVELOPER_KEY` as the base64
-encoding of the binary Garmin developer signing key (`developer_key.der`).
-The workflow exposes this secret only to the key preparation step as an
-environment variable, decodes it with `base64 --decode`, and rejects an empty
-result. A missing or invalid secret fails a trusted build rather than producing
-an unsigned substitute. The key is not printed or interpolated into the shell
-program.
-
-The decoded DER lives in a unique ignored `.ci-developer-key.*.der` file within
-the checkout, with mode `600`. The Docker build action needs a workspace-local
-file because the workspace is mounted into its container; a host-only temporary
-directory is not sufficient. The relative path is passed through `GITHUB_ENV`
-to the action's `developerKey` input. An `if: always()` cleanup step removes
-the key after compilation, including failed builds. Artifact upload selects
-only the expected PRG file.
-
-External actions use version tags:
-
-| Action | Reference |
-| --- | --- |
-| `actions/checkout` | `v4` |
-| `astral-sh/setup-uv` | `v10.0.1` |
-| `blackshadev/garmin-connectiq-build-action` | `9.2.0` |
-| `actions/upload-artifact` | `v4` |
-
-setup-uv installs uv **0.12.12**. The Garmin action's 9.2.0 tag identifies the
-action release; its embedded tools image is currently **9.1.1**, so the action
-tag must not be described as SDK 9.2.0. Version tags and the Garmin action's
-transitive container image tag can change upstream; review both implementations
-when updating or rerunning the workflow.
-
-The build matrix contains exactly `fr255`, `fr255s`, `fr255m`, `fr255sm`, and
-`fr965`. Each independent job compiles `monkey.jungle` with `typeCheck: '0'`,
-matching the project's current type-check setting. `fail-fast: false` allows
-the remaining device jobs to finish if one fails. Each successful job uploads
-`bin/PolarFinder-<device>.prg` as `PolarFinder-<device>`, fails the upload if that
-file is absent, and retains the artifact for **14 days**. This workflow compiles
-device PRGs; simulator tests remain a separate local command.
