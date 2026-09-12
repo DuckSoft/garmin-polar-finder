@@ -137,7 +137,9 @@ previous generator as well is necessary when its output contract changed.
 
 ## CI trust and build contract
 
-`.github/workflows/build.yml` runs on pushes, pull requests, and manual dispatch.
+`.github/workflows/build.yml` runs on pushes to `main`, pull requests, and manual
+dispatch. Feature-branch pushes do not trigger a second run alongside their PR;
+branches without a PR can be checked through manual dispatch.
 The validation job runs `make check-generated` and `make lint` without a signing
 secret. CI never runs the IERS updater: it verifies the committed snapshot and
 generated module, so passing a build cannot silently change the data window.
