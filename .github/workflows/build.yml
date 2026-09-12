@@ -69,19 +69,24 @@ jobs:
         run: bash tests/run-simulator-tests.sh "$RUNNER_TEMP/PolarFinder-tests-${{ matrix.device }}.prg" "${{ matrix.device }}"
 
   build:
-    name: Build ${{ matrix.device }}
+    name: Build all devices
     needs: test
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        device: [fr255, fr255s, fr255m, fr255sm, fr965]
     steps:
       - name: Check out source
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up ConnectIQ SDK
+        uses: DuckSoft/setup-connectiq-actions@v2
+        with:
+          sdk-version: '9.2.0'
       - name: Prepare signing key and output directory
         shell: bash
         env:
@@ -94,14 +99,12 @@ jobs:
           printf '%s' "$CIQ_DEVELOPER_KEY" | base64 --decode > "$key_file"
           test -s "$key_file"
           mkdir -p bin
-      - name: Compile PRG
-        uses: blackshadev/garmin-connectiq-build-action@9.2.0
-        with:
-          developerKey: ${{ env.CIQ_KEY_PATH }}
-          projectJungle: monkey.jungle
-          typeCheck: '0'
-          device: ${{ matrix.device }}
-          outputPath: bin/PolarFinder-${{ matrix.device }}.prg
+      - name: Compile PRGs
+        shell: bash
+        run: |
+          make SDK_HOME="$(dirname "$(dirname "$(command -v monkeyc)")")" \
+            DEVELOPER_KEY="$GITHUB_WORKSPACE/$CIQ_KEY_PATH" \
+            build-all
       - name: Remove signing key
         if: always()
         shell: bash
@@ -109,10 +112,38 @@ jobs:
           if [[ -n "${CIQ_KEY_PATH:-}" ]]; then
             rm -f -- "$GITHUB_WORKSPACE/$CIQ_KEY_PATH"
           fi
-      - name: Upload PRG
+      - name: Upload fr255 PRG
         uses: actions/upload-artifact@v4
         with:
-          name: PolarFinder-${{ matrix.device }}
-          path: bin/PolarFinder-${{ matrix.device }}.prg
+          name: PolarFinder-fr255
+          path: bin/PolarFinder-fr255.prg
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload fr255s PRG
+        uses: actions/upload-artifact@v4
+        with:
+          name: PolarFinder-fr255s
+          path: bin/PolarFinder-fr255s.prg
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload fr255m PRG
+        uses: actions/upload-artifact@v4
+        with:
+          name: PolarFinder-fr255m
+          path: bin/PolarFinder-fr255m.prg
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload fr255sm PRG
+        uses: actions/upload-artifact@v4
+        with:
+          name: PolarFinder-fr255sm
+          path: bin/PolarFinder-fr255sm.prg
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload fr965 PRG
+        uses: actions/upload-artifact@v4
+        with:
+          name: PolarFinder-fr965
+          path: bin/PolarFinder-fr965.prg
           if-no-files-found: error
           retention-days: 14
