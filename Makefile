@@ -1,4 +1,6 @@
+ifeq ($(origin SDK_HOME), undefined)
 SDK_HOME := $(shell cat "$(HOME)/Library/Application Support/Garmin/ConnectIQ/current-sdk.cfg")
+endif
 MONKEYC := $(SDK_HOME)/bin/monkeyc
 MONKEYDO := $(SDK_HOME)/bin/monkeydo
 CONNECTIQ := $(SDK_HOME)/bin/connectiq
