@@ -176,7 +176,7 @@ External actions use version tags:
 | `astral-sh/setup-uv` | `v10.0.1` |
 | `actions/setup-java` | `v4` |
 | `DuckSoft/setup-connectiq-actions` | `v2` |
-| `actions/upload-artifact` | `v4` |
+| `actions/upload-artifact` | `v7` |
 
 setup-uv installs uv **0.12.12**. The Connect IQ setup action installs SDK
 **9.2.0**, and setup-java selects Java **17**.
