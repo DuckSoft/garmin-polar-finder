@@ -2,6 +2,12 @@
 
 # Polar Finder
 
+## User manual
+
+**Using the app? Start with the [Polar Finder User Manual](docs/user-manual.md)**
+for setup, controls, location entry, reticle guidance, atmospheric settings, and
+troubleshooting.
+
 A Garmin Connect IQ watch app for polar alignment on the Forerunner 255 family
 (`fr255`, `fr255s`, `fr255m`, and `fr255sm`) and Forerunner 965 (`fr965`).
 It acquires or edits an observing location, reviews atmospheric inputs,

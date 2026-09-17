@@ -13,6 +13,7 @@ This repository contains a Garmin Connect IQ watch app targeting the Forerunner 
 - `resources-round-218x218/` and `resources-round-260x260/`: generated, dithered 40×40 launcher overrides for the 64-color Forerunner 255 displays.
 - `resources-zhs/` and `resources-zht/`: Chinese string overrides.
 - `artwork/`: editable vector artwork. Do not hand-edit generated PNGs.
+- `docs/user-manual.md`: user-facing English instructions linked prominently from `README.md`.
 - `Makefile`: canonical single-device, all-device, package, simulator, run, and test interface.
 
 ## Development rules
@@ -24,6 +25,8 @@ This repository contains a Garmin Connect IQ watch app targeting the Forerunner 
 - Keep English, Simplified Chinese, and Traditional Chinese strings synchronized.
 - Before adding a non-ASCII character to any watch-visible string, verify that Garmin's runtime font renders it on every supported display family and language. Do not infer glyph coverage from desktop fonts or successful compilation; use an existing verified glyph or an ASCII fallback otherwise.
 - Regenerate launcher PNGs from `artwork/launcher-icon.svg` with `make build`; ImageMagick produces the 65×65 AMOLED resource and family-qualified dithered 40×40 MIP resources.
+- Whenever code, resources, or the manifest change user-visible behavior, controls, screens, settings, supported devices, permissions, warnings, errors, or limitations, update `docs/user-manual.md` in the same change. Keep it written for app users rather than developers, and preserve its prominent link near the start of `README.md`.
+- Do not duplicate changing runtime data, such as the bundled Earth-data validity dates, in the user manual. Direct users to the app interface that owns and displays those values so the information remains single-sourced.
 
 ## Verification
 
