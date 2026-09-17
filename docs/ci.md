@@ -5,9 +5,13 @@ dispatch. Feature-branch pushes do not trigger a second run alongside their PR;
 branches without a PR can be checked through manual dispatch.
 `.github/workflows/release.yml` runs on pushes of tags matching `v*`.
 Both workflows first run `make check-generated` and `make lint` without a signing
-secret. CI never runs the IERS updater: it verifies the committed snapshot and
-generated module, so passing a build cannot silently change the data window.
-Installing actions, uv, formatting packages, and build tools may use the network;
+secret. The lint stage checks all tracked or untracked, nonignored Monkey C files
+with the pinned `monkeyc-fmt` **0.1.1**, as well as project XML. Each validation
+or test job installs the formatter once through Cargo.
+CI never runs the IERS updater: it verifies the committed snapshot and generated
+module, so passing a build cannot silently change the data window. Installing
+actions, uv,
+the Rust toolchain, formatting packages, and build tools may use the network;
 this is separate from refreshing IERS reference data.
 
 Both workflows default to `contents: read` and disable checkout credential
@@ -38,17 +42,20 @@ failed builds. Artifact uploads select only production PRGs.
 
 External actions use version tags:
 
-| Action                             | Reference |
-| ---------------------------------- | --------- |
-| `actions/checkout`                 | `v4`      |
-| `astral-sh/setup-uv`               | `v10.0.1` |
-| `actions/setup-java`               | `v4`      |
-| `DuckSoft/setup-connectiq-actions` | `v2`      |
-| `actions/upload-artifact`          | `v7`      |
-| `actions/download-artifact`        | `v4.1.3`  |
+| Action                                      | Reference |
+| ------------------------------------------- | --------- |
+| `actions/checkout`                          | `v4`      |
+| `astral-sh/setup-uv`                        | `v10.0.1` |
+| `dtolnay/rust-toolchain`                    | `stable`  |
+| `actions/setup-java`                        | `v4`      |
+| `DuckSoft/setup-connectiq-actions`          | `v2`      |
+| `actions/upload-artifact`                   | `v7`      |
+| `actions/download-artifact`                 | `v4.1.3`  |
 
-setup-uv installs uv **0.12.12**. The Connect IQ setup action installs SDK
-**9.2.0**, and setup-java selects Java **17**.
+setup-uv installs uv **0.12.12**. rust-toolchain provides stable Rust and
+Cargo to validation and test jobs, which install `monkeyc-fmt` **0.1.1**.
+Test targets format Monkey C sources before compilation. The Connect IQ setup
+action installs SDK **9.2.0**, and setup-java selects Java **17**.
 
 The build workflow uses one Ubuntu 22.04 build job with a **30-minute** timeout.
 On trusted runs it compiles all production PRGs and removes the repository

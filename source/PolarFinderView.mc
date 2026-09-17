@@ -11,239 +11,2279 @@ import Toybox.Time.Gregorian;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
-function focusVisibleScroll(rowTop, rowPitch, rowHalfHeight, drawableTop, drawableBottom, focus, scroll) {
-  var center = rowTop + (focus - scroll) * rowPitch;
-  while (center - rowHalfHeight < drawableTop) {
-    scroll -= 1;
-    center += rowPitch;
-  }
-  while (center + rowHalfHeight > drawableBottom) {
-    scroll += 1;
-    center -= rowPitch;
-  }
-  return scroll;
+function focusVisibleScroll(
+    rowTop,
+    rowPitch,
+    rowHalfHeight,
+    drawableTop,
+    drawableBottom,
+    focus,
+    scroll
+) {
+    var center = rowTop + (focus - scroll) * rowPitch;
+    while (center - rowHalfHeight < drawableTop) {
+        scroll -= 1;
+        center += rowPitch;
+    }
+    while (center + rowHalfHeight > drawableBottom) {
+        scroll += 1;
+        center -= rowPitch;
+    }
+    return scroll;
 }
 
 function variableHeightVisibleStart(heights, focus, start, available) {
-  if (focus < start) { start = focus; }
-  var used = 0;
-  for (var i = start; i <= focus; i++) { used += heights[i]; }
-  while (used > available && start < focus) {
-    used -= heights[start];
-    start += 1;
-  }
-  return start;
+    if (focus < start) {
+        start = focus;
+    }
+    var used = 0;
+    for (var i = start; i <= focus; i++) {
+        used += heights[i];
+    }
+    while (used > available && start < focus) {
+        used -= heights[start];
+        start += 1;
+    }
+    return start;
 }
 
 function atmosphereVisibleFocus(index, direction, manualPressure) {
-  if (!manualPressure && index == 1) { return direction < 0 ? 0 : 2; }
-  if (index == 4) { return direction < 0 ? 3 : 5; }
-  return index;
+    if (!manualPressure && index == 1) {
+        return direction < 0 ? 0 : 2;
+    }
+    if (index == 4) {
+        return direction < 0 ? 3 : 5;
+    }
+    return index;
 }
 
 function atmosphereVisibleIndex(item, manualPressure) {
-  return !manualPressure && item > 1 ? item - 1 : item;
+    return !manualPressure && item > 1 ? item - 1 : item;
 }
 
 function atmosphereItemAt(visibleIndex, manualPressure) {
-  return !manualPressure && visibleIndex > 0 ? visibleIndex + 1 : visibleIndex;
+    return !manualPressure && visibleIndex > 0 ? visibleIndex + 1 : visibleIndex;
 }
 
 function centeredMenuRowTop(profile, visibleRows) {
-  return profile.centerY - ((visibleRows - 1) * profile.rowPitch) / 2;
+    return profile.centerY - ((visibleRows - 1) * profile.rowPitch) / 2;
 }
 
 function locateVisibleFocus(index, direction, hasLocation) {
-  if (!hasLocation && index == 7) { return direction < 0 ? 6 : 8; }
-  return index;
+    if (!hasLocation && index == 7) {
+        return direction < 0 ? 6 : 8;
+    }
+    return index;
 }
 
 function wrapMenuFocus(focus, max, scroll) {
-  if (focus < 0) { return [max, 0]; }
-  if (focus > max) { return [0, 0]; }
-  return [focus, scroll];
+    if (focus < 0) {
+        return [max, 0];
+    }
+    if (focus > max) {
+        return [0, 0];
+    }
+    return [focus, scroll];
 }
 const RETICLE_MAGNIFICATION = 6.0;
 
 function magnifiedReticleCoordinate(value, pivot, center) {
-  return center + (value - pivot) * RETICLE_MAGNIFICATION;
+    return center + (value - pivot) * RETICLE_MAGNIFICATION;
 }
 
 function reticleMagnificationEndpoint(magnified, key) {
-  if (key == WatchUi.KEY_UP) { return true; }
-  if (key == WatchUi.KEY_DOWN) { return false; }
-  return magnified;
+    if (key == WatchUi.KEY_UP) {
+        return true;
+    }
+    if (key == WatchUi.KEY_DOWN) {
+        return false;
+    }
+    return magnified;
 }
 
 function reticleMagnificationAllowed(reticleType, markerValid) {
-  return markerValid && (reticleType == RETICLE_IOPTRON || reticleType == RETICLE_SIFO);
+    return markerValid && (reticleType == RETICLE_IOPTRON || reticleType == RETICLE_SIFO);
 }
 
-
-
-
 class PolarFinderView extends WatchUi.View {
-  private var _magnified=false;
-  static const LOCATE=0; static const GPS=1; static const EDIT_LAT=2; static const EDIT_LON=3; static const EDIT_ELEV=4; static const ATMOS=5;
-  static const CALC=6; static const DISPLAY=7; static const ACTIONS=8; static const DETAILS=9; static const HELP=10; static const GPS_WARNING=11;
-  static const DISCARD=12; static const CALC_ERROR=13; static const RETICLE=14;
-  private var _profile; private var _model; private var _screen=LOCATE; private var _focus=0; private var _scroll=0; private var _rowTop=116; private var _rowHalfHeight=14; private var _editing=false; private var _atmosphereReturn=LOCATE;
-  private var _timer; private var _gpsStarted=0; private var _gpsLat=null; private var _gpsLon=null; private var _gpsElev=null; private var _gpsQuality=""; private var _gpsQualityCode=0; private var _gpsReceived=0; private var _gpsWhen=null; private var _gpsError=null;
-  private var _digits=[]; private var _negative=false; private var _editOriginal=null; private var _invalid=false;
-  private var _calcStage=0; private var _progress=0; private var _pressureAttempts=0; private var _pressureSamples=[]; private var _cancelRequested=false; private var _restart=false; private var _errorText=null; private var _astroState=null;
-  private var _result=null; private var _resultTime=null; private var _displayBase=0; private var _lastTick=0; private var _lastAnchor=0;
-  private var _seaPressure=null; private var _observerPressure=0.0; private var _pressureSource=""; private var _pressureTime=null; private var _cachedSeaPressure=null; private var _cachedPressureTime=null; private var _eop=null; private var _ellipsoidHeight=null; private var _geoidOffset=null;
-  private var _helpPage=0; private var _reticleOriginal=RETICLE_GENERIC; private var _markerPosition=[0.0,0.0]; private var _detailHeights=[]; private var _detailTops=[]; private var _reticleClock="12:00"; private var _reticleClockMinute=-1; private var _reticleOffset=""; private var _lastReticle=null;
-
-  function initialize(model){View.initialize();_model=model;_timer=new Timer.Timer();}
-  function onLayout(dc){_profile=new DisplayProfile(dc.getWidth(),dc.getHeight(),dc.getFontHeight(Graphics.FONT_XTINY));}
-  function stopTimers(){if(_timer!=null){_timer.stop();}}
-  function onHide(){stopTimers();}
-  function onAppInactive(){stopTimers();if(_astroState!=null){Astrometry.cancel(_astroState);_astroState=null;}if(_screen==CALC){_restart=true;}else if(_screen==DISPLAY){_result=null;}}
-  function onAppActive(){if(_screen==CALC&&_restart){beginCalculation(true);}else if(_screen==DISPLAY){beginCalculation(true);}}
-  function s(id){return Application.loadResource(id);}
-  function title(dc,text){dc.setColor(Graphics.COLOR_RED,Graphics.COLOR_TRANSPARENT);dc.drawText(_profile.centerX,_profile.titleY,Graphics.FONT_SMALL,text,Graphics.TEXT_JUSTIFY_CENTER);}
-  function center(dc,y,font,text,color){dc.setColor(color,Graphics.COLOR_TRANSPARENT);dc.drawText(_profile.centerX,y,font,text,Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);}
-  function centerFit(dc,y,text,color,preferred,fallback,maxWidth){var font=preferred;if(dc.getTextWidthInPixels(text,font)>maxWidth){font=fallback;if(dc.getTextWidthInPixels(text,font)>maxWidth){font=Graphics.FONT_XTINY;if(dc.getTextWidthInPixels(text,font)>maxWidth){return false;}}}center(dc,y,font,text,color);return true;}
-  function footer(dc,text){center(dc,_profile.footerY,Graphics.FONT_XTINY,text,Graphics.COLOR_DK_GRAY);}
-  function ensureFocusVisible(){if(_rowHalfHeight>0){_scroll=focusVisibleScroll(_rowTop,_profile.rowPitch,_rowHalfHeight,_profile.drawableTop,_profile.drawableBottom,_focus,_scroll);}}
-  function ensureAtmosphereFocusVisible(){if(_rowHalfHeight>0){var visibleFocus=atmosphereVisibleIndex(_focus,_model.pressureMode==1);_scroll=focusVisibleScroll(_rowTop,_profile.rowPitch,_rowHalfHeight,_profile.drawableTop,_profile.drawableBottom,visibleFocus,_scroll);}}
-  function row(dc,index,label,value){rowAt(dc,index,_focus,label,value);}
-  function rowAt(dc,index,focusIndex,label,value){
-    var font=Graphics.FONT_XTINY;var fh=dc.getFontHeight(font);var rh=fh+8;
-    if(index==0){_rowHalfHeight=rh/2;_rowTop=_profile.rowTop(_rowTop,_rowHalfHeight);if(_screen==ATMOS){ensureAtmosphereFocusVisible();}else{ensureFocusVisible();}}
-    var cy=_rowTop+(index-_scroll)*_profile.rowPitch;if(cy-rh/2<_profile.drawableTop||cy+rh/2>_profile.drawableBottom){return;}
-    if(index==focusIndex){var focusHeight=_profile.rowPitch-4;dc.setColor(0x330000,Graphics.COLOR_TRANSPARENT);dc.fillRoundedRectangle(_profile.rowLeft,cy-focusHeight/2,_profile.contentWidth,focusHeight,8);dc.setColor(Graphics.COLOR_RED,Graphics.COLOR_TRANSPARENT);dc.setPenWidth(2);dc.drawRoundedRectangle(_profile.rowLeft,cy-focusHeight/2,_profile.contentWidth,focusHeight,8);if(_editing){dc.fillRectangle(_profile.rowLeft+7,cy-4,8,8);}}
-    var vjust=Graphics.TEXT_JUSTIFY_VCENTER;dc.setColor(Graphics.COLOR_LT_GRAY,Graphics.COLOR_TRANSPARENT);dc.drawText(_profile.labelX,cy,font,label,Graphics.TEXT_JUSTIFY_LEFT|vjust);if(value!=null){dc.setColor(Graphics.COLOR_WHITE,Graphics.COLOR_TRANSPARENT);dc.drawText(_profile.valueX,cy,font,value,Graphics.TEXT_JUSTIFY_RIGHT|vjust);}
-  }
-  function onUpdate(dc){dc.setColor(Graphics.COLOR_BLACK,Graphics.COLOR_BLACK);dc.clear();if(_screen==LOCATE){drawLocate(dc);}else if(_screen==GPS){drawGps(dc);}else if(isEditor()){drawEditor(dc);}else if(_screen==ATMOS){drawAtmos(dc);}else if(_screen==RETICLE){drawReticleChoice(dc);}else if(_screen==CALC){drawCalc(dc);}else if(_screen==DISPLAY){drawDisplay(dc);}else if(_screen==ACTIONS){drawActions(dc);}else if(_screen==DETAILS){drawDetails(dc);}else if(_screen==HELP){drawHelp(dc);}else if(_screen==GPS_WARNING){drawGpsWarning(dc);}else if(_screen==DISCARD){drawDiscard(dc);}else if(_screen==CALC_ERROR){drawError(dc);}}
-
-  function reticleText(){if(_model.reticleType==RETICLE_IOPTRON){return s(Rez.Strings.Ioptron);}if(_model.reticleType==RETICLE_SIFO){return s(Rez.Strings.Sifo);}return s(Rez.Strings.Generic);}
-  function drawLocate(dc){var first=_model.firstUse&&!_model.hasLocation();var titleHeight=dc.getFontHeight(Graphics.FONT_SMALL);var hintTop=_profile.titleY+titleHeight+2;_rowTop=116;row(dc,0,s(Rez.Strings.Latitude),coord(_model.latitude,true));row(dc,1,s(Rez.Strings.Longitude),coord(_model.longitude,false));row(dc,2,s(Rez.Strings.Elevation),_model.elevation==null?s(Rez.Strings.NoLocation):_model.elevation.format("%.0f")+" m");row(dc,3,s(Rez.Strings.Gps),"");row(dc,4,s(Rez.Strings.Format),_model.formatDms?s(Rez.Strings.Dms):s(Rez.Strings.Decimal));row(dc,5,s(Rez.Strings.Reticle),reticleText());row(dc,6,s(Rez.Strings.Atmosphere),"");row(dc,7,_model.confirmed?s(Rez.Strings.Calculate):s(Rez.Strings.ConfirmLocation),"");row(dc,8,s(Rez.Strings.Help),"");title(dc,s(Rez.Strings.Locate));if(first){centerFit(dc,hintTop,s(Rez.Strings.FirstUse),Graphics.COLOR_LT_GRAY,Graphics.FONT_XTINY,Graphics.FONT_XTINY,_profile.contentWidth);}if(_model.hasLocation()){footer(dc,s(Rez.Strings.Source)+": "+sourceText());}}
-  function drawReticleChoice(dc){_rowTop=170;title(dc,s(Rez.Strings.Reticle));row(dc,0,s(Rez.Strings.Generic),"");row(dc,1,s(Rez.Strings.Ioptron),"");row(dc,2,s(Rez.Strings.Sifo),"");}
-  function sourceText(){if(_model.adjusted){return s(Rez.Strings.GpsAdjusted);}if(_model.source=="GPS"){return "GPS";}if(_model.source=="Manual"){return s(Rez.Strings.Manual);}return s(Rez.Strings.Saved);}
-  function coord(value,isLat){if(value==null){return s(Rez.Strings.NoLocation);}var a=value.abs();var hemi=isLat?(value<0?"S":"N"):(value<0?"W":"E");if(!_model.formatDms){return a.format("%.5f")+"° "+hemi;}var d=a.toNumber();var mf=(a-d)*60.0;var m=mf.toNumber();var sec=Math.round((mf-m)*60.0).toNumber();if(sec==60){sec=0;m+=1;}if(m==60){m=0;d+=1;}return Lang.format("$1$°$2$′$3$″ $4$",[d,m,sec,hemi]);}
-
-  function drawGps(dc){_rowTop=276;title(dc,s(Rez.Strings.GpsTitle));var elapsed=Time.now().value()-_gpsStarted;var state=_gpsError!=null?_gpsError:(_gpsLat==null?(elapsed>=60?s(Rez.Strings.NoFix):s(Rez.Strings.Searching)):_gpsQuality);centerFit(dc,_profile.y(75),state,Graphics.COLOR_WHITE,Graphics.FONT_SMALL,Graphics.FONT_XTINY,_profile.contentWidth);center(dc,_profile.y(112),Graphics.FONT_XTINY,s(Rez.Strings.Elapsed)+": "+formatElapsed(elapsed),Graphics.COLOR_LT_GRAY);if(_gpsLat!=null){center(dc,_profile.y(148),Graphics.FONT_XTINY,coord(_gpsLat,true),Graphics.COLOR_LT_GRAY);center(dc,_profile.y(174),Graphics.FONT_XTINY,coord(_gpsLon,false),Graphics.COLOR_LT_GRAY);center(dc,_profile.y(200),Graphics.FONT_XTINY,_gpsElev.format("%.0f")+" m",Graphics.COLOR_LT_GRAY);if(_gpsQualityCode==Position.QUALITY_LAST_KNOWN&&_gpsWhen!=null){center(dc,_profile.y(224),Graphics.FONT_XTINY,s(Rez.Strings.Age)+": "+formatElapsed(Time.now().value()-_gpsWhen),Graphics.COLOR_DK_GRAY);}}row(dc,0,s(Rez.Strings.UseLocation),_gpsLat==null?"—":"");row(dc,1,s(Rez.Strings.EnterManual),"");row(dc,2,s(Rez.Strings.Cancel),"");centerFit(dc,_profile.footerY,"START",Graphics.COLOR_DK_GRAY,Graphics.FONT_XTINY,Graphics.FONT_XTINY,_profile.contentWidth);}
-  function formatElapsed(n){return Lang.format("$1$:$2$",[(n/60).format("%02d"),(n%60).format("%02d")]);}
-
-  function isEditor(){return _screen==EDIT_LAT||_screen==EDIT_LON||_screen==EDIT_ELEV;}
-  function beginEditor(screen){_screen=screen;_focus=0;_scroll=0;_editing=false;_invalid=false;_editOriginal=screen==EDIT_LAT?_model.latitude:(screen==EDIT_LON?_model.longitude:_model.elevation);var v=_editOriginal==null?0.0:_editOriginal;_negative=v<0;_digits=[];var count=screen==EDIT_LAT?7:(screen==EDIT_LON?8:5);var scaled;if(screen==EDIT_ELEV){scaled=Math.round(v.abs()).toNumber();}else if(_model.formatDms){var a=v.abs();var d=a.toNumber();var mm=(a-d)*60.0;var m=mm.toNumber();var sec=Math.round((mm-m)*60.0).toNumber();scaled=d*10000+m*100+sec;count=(screen==EDIT_LAT?6:7);}else{scaled=Math.round(v.abs()*100000.0).toNumber();}for(var i=count-1;i>=0;i--){_digits.add((scaled/Math.pow(10,i)).toNumber()%10);}WatchUi.requestUpdate();}
-  function digitLabel(i){if(i==0){return s(_screen==EDIT_ELEV?Rez.Strings.Sign:Rez.Strings.Hemisphere);}if(_screen==EDIT_ELEV){var p=4-(i-1);return p==0?"m":"m x "+Math.pow(10,p).format("%d");}var degreeDigits=_screen==EDIT_LAT?2:3;if(i<=degreeDigits){return "° x "+Math.pow(10,degreeDigits-i).format("%d");}if(_model.formatDms){var j=i-degreeDigits;return j<=2?(j==1?"′ x 10":"′ x 1"):(j==3?"″ x 10":"″ x 1");}var f=i-degreeDigits;return "° x 0."+repeatZero(f-1)+"1";}
-  function repeatZero(n){var x="";for(var i=0;i<n;i++){x+="0";}return x;}
-  function editorValue(i){if(i==0){if(_screen==EDIT_LAT){return _negative?"S":"N";}if(_screen==EDIT_LON){return _negative?"W":"E";}return _negative?"-":"+";}return _digits[i-1].toString();}
-  function drawEditor(dc){_rowTop=82;title(dc,s(_screen==EDIT_LAT?Rez.Strings.EditLatitude:(_screen==EDIT_LON?Rez.Strings.EditLongitude:Rez.Strings.EditElevation)));for(var i=0;i<=_digits.size();i++){row(dc,i,digitLabel(i),editorValue(i));}row(dc,_digits.size()+1,s(Rez.Strings.Done),"");if(_invalid){centerFit(dc,_profile.y(374),s(Rez.Strings.InvalidCoordinate),Graphics.COLOR_RED,Graphics.FONT_XTINY,Graphics.FONT_XTINY,_profile.contentWidth);}footer(dc,_editing?s(Rez.Strings.Changing):s(Rez.Strings.SelectDigit));}
-  function changeDigit(delta){if(_focus==0){_negative=!_negative;return;}var idx=_focus-1;var max=9;if(_model.formatDms&&_screen!=EDIT_ELEV){var dd=_screen==EDIT_LAT?2:3;var part=idx+1-dd;if(part==1||part==3){max=5;}}var v=_digits[idx]+delta;if(v<0){v=max;}if(v>max){v=0;}_digits[idx]=v;_invalid=false;}
-  function editorNumber(){var total=0;for(var i=0;i<_digits.size();i++){total=total*10+_digits[i];}var v;if(_screen==EDIT_ELEV){v=total;}else if(_model.formatDms){var d=(total/10000).toNumber();var m=((total%10000)/100).toNumber();var sec=total%100;v=d+m/60.0+sec/3600.0;}else{v=total/100000.0;}return _negative?-v:v;}
-  function commitEditor(){var v=editorNumber();var av=v.abs();var max=_screen==EDIT_LAT?90.0:(_screen==EDIT_LON?180.0:99999.0);if(av>max){_invalid=true;_focus=1;_scroll=0;return;}if(_screen!=EDIT_ELEV&&_model.formatDms){var total=0;for(var i=0;i<_digits.size();i++){total=total*10+_digits[i];}var d=(total/10000).toNumber();var m=((total%10000)/100).toNumber();var sec=total%100;if(m>59){_invalid=true;_focus=_digits.size()-3;return;}if(sec>59){_invalid=true;_focus=_digits.size()-1;return;}if(d==max&&(m!=0||sec!=0)){_invalid=true;_focus=_digits.size()-3;return;}}else if(_screen!=EDIT_ELEV&&av==max){var whole=av.toNumber();if(av-whole>0){_invalid=true;_focus=(_screen==EDIT_LAT?3:4);return;}}
-    if(_screen==EDIT_LAT){_model.latitude=v;}else if(_screen==EDIT_LON){_model.longitude=v;}else{_model.elevation=v;}_model.adjusted=_model.source=="GPS";if(!_model.adjusted){_model.source="Manual";}_model.confirmed=false;open(LOCATE);}
-
-  function drawAtmos(dc){var manual=_model.pressureMode==1;_rowTop=centeredMenuRowTop(_profile,manual?7:6);title(dc,s(Rez.Strings.Atmosphere));var focusIndex=atmosphereVisibleIndex(_focus,manual);var mode=_model.pressureMode==0?s(Rez.Strings.Automatic):(manual?s(Rez.Strings.PressureManual):s(Rez.Strings.RefractionOff));var i=0;rowAt(dc,i,focusIndex,s(Rez.Strings.Pressure),mode);i+=1;if(manual){rowAt(dc,i,focusIndex,s(Rez.Strings.AtmosphereValue),_model.manualPressure.format("%.1f")+" hPa");i+=1;}rowAt(dc,i,focusIndex,s(Rez.Strings.Temperature),_model.temperature.format("%.1f")+"°C");i+=1;rowAt(dc,i,focusIndex,s(Rez.Strings.Humidity),_model.humidity.format("%.0f")+"%");i+=1;rowAt(dc,i,focusIndex,s(Rez.Strings.Wavelength),"0.55 um");i+=1;rowAt(dc,i,focusIndex,s(Rez.Strings.Alert),_model.calculationAlert?s(Rez.Strings.On):s(Rez.Strings.Off));i+=1;rowAt(dc,i,focusIndex,s(Rez.Strings.Done),"");}
-
-  function drawCalc(dc){title(dc,_restart?s(Rez.Strings.Restarting):s(Rez.Strings.Calculating));var labels=[Rez.Strings.ReadingPressure,Rez.Strings.LoadingEarth,Rez.Strings.ConvertingTime,Rez.Strings.CalculatingPolaris,Rez.Strings.ObserverCorrections,Rez.Strings.PreparingDisplay];centerFit(dc,_profile.y(120),s(labels[_calcStage]),Graphics.COLOR_LT_GRAY,Graphics.FONT_SMALL,Graphics.FONT_XTINY,_profile.contentWidth);var barX=_profile.rowLeft;var barY=_profile.y(190);var barWidth=_profile.contentWidth;var barHeight=_profile.height<=260?10:20;dc.setColor(0x330000,Graphics.COLOR_TRANSPARENT);dc.fillRectangle(barX,barY,barWidth,barHeight);dc.setColor(Graphics.COLOR_RED,Graphics.COLOR_TRANSPARENT);dc.fillRectangle(barX,barY,(barWidth*_progress)/100,barHeight);dc.drawRectangle(barX,barY,barWidth,barHeight);center(dc,_profile.y(230),Graphics.FONT_SMALL,_progress.format("%d")+"%",Graphics.COLOR_WHITE);footer(dc,s(Rez.Strings.CancelHint));}
-  function drawError(dc){_rowTop=250;title(dc,s(Rez.Strings.CalculationError));drawWrapped(dc,_errorText,_profile.y(85));row(dc,0,s(Rez.Strings.TryAgain),"");row(dc,1,s(Rez.Strings.BackLocation),"");row(dc,2,s(Rez.Strings.Details),"");}
-  function drawDisplay(dc){if(_model.reticleType!=RETICLE_GENERIC){drawReticleDisplay(dc);return;}centerFit(dc,_profile.y(50),s(Rez.Strings.HourAngle),Graphics.COLOR_RED,Graphics.FONT_XTINY,Graphics.FONT_XTINY,_profile.contentWidth);if(_result==null){center(dc,_profile.y(170),Graphics.FONT_LARGE,"—",Graphics.COLOR_DK_GRAY);return;}var rn=_lastReticle;if(rn==null){rn=reticleNow(Time.now().value()-_displayBase);}var ha=rn[:hourAngle];var pd=rn[:poleDistance];centerFit(dc,_profile.y(119),formatHa(ha),Graphics.COLOR_RED,Graphics.FONT_LARGE,Graphics.FONT_SMALL,_profile.contentWidth);center(dc,_profile.y(188),Graphics.FONT_XTINY,s(Rez.Strings.PoleDistance),Graphics.COLOR_LT_GRAY);centerFit(dc,_profile.y(245),formatPd(pd),Graphics.COLOR_RED,Graphics.FONT_SMALL,Graphics.FONT_XTINY,_profile.contentWidth);centerFit(dc,_profile.y(305),localDateTime(),Graphics.COLOR_LT_GRAY,Graphics.FONT_XTINY,Graphics.FONT_XTINY,_profile.contentWidth);if(_result[:warning]!=null){drawWrappedWidth(dc,s(_result[:warning]),_profile.y(354),_profile.footerY,_profile.detailWidth,_profile.rowPitch);return;}centerFit(dc,_profile.y(352),sourceText(),Graphics.COLOR_LT_GRAY,Graphics.FONT_XTINY,Graphics.FONT_XTINY,_profile.contentWidth);centerFit(dc,_profile.y(402),s(Rez.Strings.SelectAction),Graphics.COLOR_LT_GRAY,Graphics.FONT_XTINY,Graphics.FONT_XTINY,_profile.contentWidth);}
-  function drawReticleDisplay(dc){
-    if(_result==null){return;}
-    var cx=_profile.centerX.toFloat();var cy=_profile.centerY.toFloat();var r70=reticleAngularRadius(_model.reticleType,_profile.reticleRadius);var maxPoleDistance=reticleMaximumPoleDistance(_model.reticleType);var rn=_lastReticle;if(rn==null){rn=reticleNow(Time.now().value()-_displayBase);}var poleArcmin=rn[:poleDistance]*180.0/Math.PI*60.0;var markerValid=ioptronMarkerPosition(_markerPosition,rn[:hourAngle],0.0,poleArcmin,cx,cy,r70,maxPoleDistance);if(!reticleMagnificationAllowed(_model.reticleType,markerValid)){_magnified=false;}var red=Graphics.COLOR_RED;
-    if(_magnified){var mx=_markerPosition[0].toNumber();var my=_markerPosition[1].toNumber();var artCx=magnifiedReticleCoordinate(cx,mx,cx);var artCy=magnifiedReticleCoordinate(cy,my,cy);drawReticleArtwork(dc,artCx,artCy,r70*RETICLE_MAGNIFICATION,markerValid,RETICLE_MAGNIFICATION,cx,cy);}else{drawReticleArtwork(dc,cx,cy,r70,markerValid,1,_markerPosition[0].toNumber(),_markerPosition[1].toNumber());}
-    if(!_magnified){drawIoptronReadout(dc,cy-_profile.y(37),_reticleClock,red);drawIoptronReadout(dc,cy+_profile.y(37),_reticleOffset,red);if(_result[:warning]!=null){drawIoptronWarning(dc,red);}}
-  }
-  function drawReticleArtwork(dc,cx,cy,r70,markerValid,scale,markerX,markerY){
-    var red=Graphics.COLOR_RED;var outerScale=reticleShowsOuterScale(_model.reticleType);dc.setColor(red,Graphics.COLOR_TRANSPARENT);dc.setPenWidth((2*scale).toNumber());
-    var r36=ioptronRingRadius(36.0,r70);dc.drawLine((cx-r36).toNumber(),cy.toNumber(),(cx+r36).toNumber(),cy.toNumber());dc.drawLine(cx.toNumber(),(cy-r36).toNumber(),cx.toNumber(),(cy+r36).toNumber());
-    dc.drawCircle(cx.toNumber(),cy.toNumber(),ioptronRingRadius(4.0,r70).toNumber());dc.drawCircle(cx.toNumber(),cy.toNumber(),r36.toNumber());dc.drawCircle(cx.toNumber(),cy.toNumber(),ioptronRingRadius(40.0,r70).toNumber());dc.drawCircle(cx.toNumber(),cy.toNumber(),ioptronRingRadius(44.0,r70).toNumber());
-    if(outerScale){dc.drawCircle(cx.toNumber(),cy.toNumber(),ioptronRingRadius(60.0,r70).toNumber());dc.drawCircle(cx.toNumber(),cy.toNumber(),ioptronRingRadius(65.0,r70).toNumber());dc.drawCircle(cx.toNumber(),cy.toNumber(),r70.toNumber());}
-    for(var k=0;k<36;k++){var angle=k*Math.PI/18.0;var tickClass=ioptronTickClass(k);dc.setPenWidth(((tickClass==0?2:1)*scale).toNumber());drawIoptronTick(dc,angle,36.0,44.0,k,r70,cx,cy);if(outerScale){drawIoptronTick(dc,angle,60.0,70.0,k,r70,cx,cy);}}
-    if(outerScale&&!_magnified){var r52=ioptronRingRadius(52.0,r70);var justify=Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER;for(var n=1;n<=12;n++){var numeralAngle=(n%12)*Math.PI/6.0;var tx=(cx+r52*Math.sin(numeralAngle)).toNumber();var ty=(cy-r52*Math.cos(numeralAngle)).toNumber();var text=n.toString();dc.setColor(Graphics.COLOR_BLACK,Graphics.COLOR_TRANSPARENT);dc.drawText(tx-1,ty-1,Graphics.FONT_XTINY,text,justify);dc.drawText(tx,ty-1,Graphics.FONT_XTINY,text,justify);dc.drawText(tx+1,ty-1,Graphics.FONT_XTINY,text,justify);dc.drawText(tx-1,ty,Graphics.FONT_XTINY,text,justify);dc.drawText(tx+1,ty,Graphics.FONT_XTINY,text,justify);dc.drawText(tx-1,ty+1,Graphics.FONT_XTINY,text,justify);dc.drawText(tx,ty+1,Graphics.FONT_XTINY,text,justify);dc.drawText(tx+1,ty+1,Graphics.FONT_XTINY,text,justify);dc.setColor(red,Graphics.COLOR_TRANSPARENT);dc.drawText(tx,ty,Graphics.FONT_XTINY,text,justify);}}
-    if(markerValid){if(_magnified){dc.setColor(Graphics.COLOR_GREEN,Graphics.COLOR_TRANSPARENT);dc.setPenWidth(1);dc.drawLine(0,markerY.toNumber(),_profile.width-1,markerY.toNumber());dc.drawLine(markerX.toNumber(),0,markerX.toNumber(),_profile.height-1);}else{var marker=_profile.markerRadius;dc.setColor(Graphics.COLOR_BLACK,Graphics.COLOR_TRANSPARENT);dc.fillCircle(markerX.toNumber(),markerY.toNumber(),marker+2);dc.setColor(Graphics.COLOR_GREEN,Graphics.COLOR_TRANSPARENT);dc.fillCircle(markerX.toNumber(),markerY.toNumber(),marker);}}
-  }
-  function drawIoptronReadout(dc,y,text,color){var font=Graphics.FONT_XTINY;var height=dc.getFontHeight(font);var width=dc.getTextWidthInPixels(text,font)+12;dc.setColor(Graphics.COLOR_BLACK,Graphics.COLOR_TRANSPARENT);dc.fillRoundedRectangle(_profile.centerX-width/2,y-height/2,width,height,4);dc.setColor(color,Graphics.COLOR_TRANSPARENT);dc.drawText(_profile.centerX,y,font,text,Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);}
-  function updateIoptronReadouts(elapsed){var rn=reticleNow(elapsed);_lastReticle=rn;_reticleOffset=formatPd(rn[:poleDistance]);var seconds=ioptronReticleClockSeconds(rn[:hourAngle]);var minute=(seconds/60).toNumber();if(minute!=_reticleClockMinute){_reticleClockMinute=minute;var hour=(seconds/3600).toNumber();if(hour==0){hour=12;}var minutePart=((seconds%3600)/60).toNumber();_reticleClock=Lang.format("$1$:$2$",[hour.format("%02d"),minutePart.format("%02d")]);}}
-  function drawIoptronWarning(dc,red){var warning=_result[:warning]==Rez.Strings.WarningLow?Rez.Strings.ReticleWarningLow:Rez.Strings.ReticleWarningEarth;var text=s(warning);var font=Graphics.FONT_XTINY;var height=dc.getFontHeight(font);var bottom=_profile.y(47);var y=bottom-height/2;var top=bottom-height;var dy=_profile.centerY-top;var safeRadius=_profile.reticleSafeRadius;var radicand=safeRadius*safeRadius-dy*dy;var safeWidth=0;if(radicand>16.0){safeWidth=(2.0*Math.sqrt(radicand)-8.0).toNumber();}var textWidth=dc.getTextWidthInPixels(text,font);if(textWidth+12<=safeWidth){var width=textWidth+12;dc.setColor(Graphics.COLOR_BLACK,Graphics.COLOR_TRANSPARENT);dc.fillRoundedRectangle(_profile.centerX-width/2,top,width,height,4);dc.setColor(red,Graphics.COLOR_TRANSPARENT);dc.setPenWidth(1);dc.drawRoundedRectangle(_profile.centerX-width/2,top,width,height,4);dc.drawText(_profile.centerX,y,font,text,Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);}else{dc.setColor(Graphics.COLOR_BLACK,Graphics.COLOR_TRANSPARENT);dc.fillCircle(_profile.centerX,y,10);dc.setColor(red,Graphics.COLOR_TRANSPARENT);dc.setPenWidth(2);dc.drawCircle(_profile.centerX,y,9);dc.drawText(_profile.centerX,y,font,"!",Graphics.TEXT_JUSTIFY_CENTER|Graphics.TEXT_JUSTIFY_VCENTER);}}
-  function formatHa(rad){var v=rad-Math.floor(rad/Math.PI)*Math.PI;if(v<0){v+=Math.PI;}var n=Math.round(v*43200.0/Math.PI).toNumber()%43200;return Lang.format("$1$:$2$:$3$",[((n/3600).toNumber()).format("%02d"),(((n%3600)/60).toNumber()).format("%02d"),(n%60).format("%02d")]);}
-  function formatPd(rad){var n=Math.round(rad*180.0/Math.PI*3600.0).toNumber();return Lang.format("$1$′ $2$″",[(n/60).toNumber(),n%60]);}
-  function localDateTime(){var date=Gregorian.info(Time.now(),Time.FORMAT_SHORT);var c=System.getClockTime();var h=c.hour;var suffix="";if(!System.getDeviceSettings().is24Hour){suffix=" "+s(h<12?Rez.Strings.Am:Rez.Strings.Pm);h=h%12;if(h==0){h=12;}}return Lang.format("$1$-$2$-$3$  $4$:$5$:$6$$7$",[date.year,date.month,date.day,h.format("%02d"),c.min.format("%02d"),c.sec.format("%02d"),suffix]);}
-  function drawActions(dc){_rowTop=104;title(dc,s(Rez.Strings.Actions));row(dc,0,s(Rez.Strings.Recalculate),"");row(dc,1,s(Rez.Strings.Location),"");row(dc,2,s(Rez.Strings.Atmosphere),"");row(dc,3,s(Rez.Strings.Details),"");}
-  function detailsRows(){var r=[];r.add([s(Rez.Strings.Latitude),coord(_model.latitude,true)]);r.add([s(Rez.Strings.Longitude),coord(_model.longitude,false)]);r.add([s(Rez.Strings.Elevation),_model.elevation.format("%.0f")+" m MSL"]);r.add([s(Rez.Strings.Source),sourceText()]);r.add([s(Rez.Strings.Quality),_model.quality]);r.add([s(Rez.Strings.SavedAt),_model.savedAt==null?"—":_model.savedAt.toString()]);r.add([s(Rez.Strings.UtcTime),_resultTime==null?"—":_resultTime.toString()]);r.add([s(Rez.Strings.SeaPressure),_seaPressure==null?"—":_seaPressure.format("%.1f")+" hPa"]);r.add([s(Rez.Strings.ObserverPressure),_observerPressure.format("%.1f")+" hPa"]);r.add([s(Rez.Strings.DataSource),_pressureSource]);r.add([s(Rez.Strings.PressureSampleTime),_pressureTime==null?"—":_pressureTime.toString()]);r.add([s(Rez.Strings.Temperature),_model.temperature.format("%.1f")+"°C"]);r.add([s(Rez.Strings.TemperatureSource),s(Rez.Strings.DefaultSource)]);r.add([s(Rez.Strings.Humidity),_model.humidity.format("%.0f")+"%"]);r.add([s(Rez.Strings.HumiditySource),s(Rez.Strings.DefaultSource)]);r.add([s(Rez.Strings.Wavelength),"0.55 um"]);r.add([s(Rez.Strings.WavelengthSource),s(Rez.Strings.VisiblePolaris)]);r.add([s(Rez.Strings.GeoidModel),s(Rez.Strings.GeoidProvenance)]);r.add([s(Rez.Strings.GeoidOffset),_geoidOffset==null?s(Rez.Strings.UnavailableData):_geoidOffset.format("%.6f")+" m"]);r.add([s(Rez.Strings.EllipsoidHeight),_ellipsoidHeight==null?s(Rez.Strings.UnavailableData):_ellipsoidHeight.format("%.6f")+" m"]);r.add([s(Rez.Strings.EarthSource),s(Rez.Strings.EarthDataProvenance)]);var mjd=_resultTime==null?null:40587.0+_resultTime/86400.0;r.add([s(Rez.Strings.SelectedMjd),mjd==null?"—":mjd.format("%.8f")]);r.add([s(Rez.Strings.EarthValidity),s(Rez.Strings.EarthValidityValue)]);r.add([s(Rez.Strings.EarthExpiry),s(Rez.Strings.EarthExpiryValue)]);r.add(["DUT1",_eop==null?"—":_eop[:dut1].format("%.9f")+" s"]);var arcsecFactor=180.0*3600.0/Math.PI;r.add(["xp / yp",_eop==null?"—":_eop[:xp].format("%.9f")+" / "+_eop[:yp].format("%.9f")+" rad"]);r.add(["xp / yp",_eop==null?"—":(_eop[:xp]*arcsecFactor).format("%.6f")+"″ / "+(_eop[:yp]*arcsecFactor).format("%.6f")+"″"]);r.add([s(Rez.Strings.CatalogSource),s(Rez.Strings.CatalogProvenance)]);r.add([s(Rez.Strings.CatalogEpoch),"J2000.0"]);r.add([s(Rez.Strings.ProperMotion),"RA +44.22 / Dec -11.74 mas/yr"]);r.add([s(Rez.Strings.Parallax),"7.54 mas"]);r.add([s(Rez.Strings.RadialVelocity),"-16.0 km/s"]);if(_result!=null){r.add([s(Rez.Strings.HourAnglePrecise),(_result[:hourAngle]*180.0/Math.PI).format("%.9f")+"°"]);r.add([s(Rez.Strings.PoleDistancePrecise),(_result[:poleDistance]*arcsecFactor).format("%.6f")+"″"]);}return r;}
-  function detailLines(dc,text,maxWidth){var lines=[];var pos=0;var font=Graphics.FONT_XTINY;while(pos<text.length()){var end=pos+1;var fit=pos;var safe=-1;while(end<=text.length()){var part=text.substring(pos,end);if(dc.getTextWidthInPixels(part,font)>maxWidth){break;}fit=end;var last=part.substring(part.length()-1,part.length());if(last==" "||last=="/"||last=="-"||last==";"){safe=end;}end+=1;}if(fit<=pos){fit=pos+1;}else if(fit<text.length()&&safe>pos){fit=safe;}var lineEnd=fit;while(lineEnd>pos&&text.substring(lineEnd-1,lineEnd)==" "){lineEnd-=1;}lines.add(text.substring(pos,lineEnd));pos=fit;while(pos<text.length()&&text.substring(pos,pos+1)==" "){pos+=1;}}if(lines.size()==0){lines.add("");}return lines;}
-  function detailLinePitch(fontHeight){return fontHeight+2;}
-  function detailHeight(lineCount,fontHeight){return 8+fontHeight+4+lineCount*detailLinePitch(fontHeight)+8;}
-  function drawIoptronTick(dc,angle,innerTheta,outerTheta,k,r70,cx,cy){var r0=ioptronTickStartRadius(innerTheta,outerTheta,k,r70);var r1=ioptronTickEndRadius(innerTheta,outerTheta,k,r70);var sin=Math.sin(angle);var cos=Math.cos(angle);dc.drawLine((cx+r0*sin).toNumber(),(cy-r0*cos).toNumber(),(cx+r1*sin).toNumber(),(cy-r1*cos).toNumber());}
-  function drawDetails(dc){title(dc,s(Rez.Strings.Details));var r=detailsRows();if(_result!=null&&_result[:warning]!=null){r.add([s(Rez.Strings.ActiveWarning),s(_result[:warning])]);}var font=Graphics.FONT_XTINY;var fh=dc.getFontHeight(font);var pitch=detailLinePitch(fh);var lines=[];_detailHeights=[];for(var i=0;i<r.size();i++){var wrapped=detailLines(dc,r[i][1],_profile.detailWidth);lines.add(wrapped);_detailHeights.add(detailHeight(wrapped.size(),fh));}_scroll=variableHeightVisibleStart(_detailHeights,_focus,_scroll,_profile.drawableBottom-_profile.drawableTop);_detailTops=[];var y=_profile.drawableTop;for(var j=_scroll;j<r.size()&&y<_profile.drawableBottom;j++){var height=_detailHeights[j];if(y+height>_profile.drawableBottom){break;}_detailTops.add([j,y,height]);dc.setColor(Graphics.COLOR_LT_GRAY,Graphics.COLOR_TRANSPARENT);dc.drawText(_profile.labelX,y+8,font,r[j][0],Graphics.TEXT_JUSTIFY_LEFT);var valueTop=y+8+fh+4;var valueHeight=lines[j].size()*pitch;if(j==_focus){dc.setColor(0x330000,Graphics.COLOR_TRANSPARENT);dc.fillRoundedRectangle(_profile.labelX,valueTop-3,_profile.detailWidth,valueHeight+6,8);dc.setColor(Graphics.COLOR_RED,Graphics.COLOR_TRANSPARENT);dc.setPenWidth(2);dc.drawRoundedRectangle(_profile.labelX,valueTop-3,_profile.detailWidth,valueHeight+6,8);}dc.setColor(Graphics.COLOR_WHITE,Graphics.COLOR_TRANSPARENT);for(var k=0;k<lines[j].size();k++){dc.drawText(_profile.valueX,valueTop+k*pitch,font,lines[j][k],Graphics.TEXT_JUSTIFY_RIGHT);}y+=height;}footer(dc,s(Rez.Strings.Back));}
-
-  function drawHelp(dc){centerFit(dc,_profile.y(50),s(Rez.Strings.Help),Graphics.COLOR_RED,Graphics.FONT_XTINY,Graphics.FONT_XTINY,_profile.contentWidth);var pages=[Rez.Strings.HelpLocation,Rez.Strings.HelpFormats,Rez.Strings.HelpGps,Rez.Strings.HelpAtmosphere,Rez.Strings.HelpHour,Rez.Strings.HelpPole,Rez.Strings.HelpEarth,Rez.Strings.HelpReticle];var linePitch=dc.getFontHeight(Graphics.FONT_XTINY)+_profile.y(30);drawWrappedWidth(dc,s(pages[_helpPage]),_profile.y(110),_profile.drawableBottom,_profile.detailWidth,linePitch);centerFit(dc,_profile.footerY,s(Rez.Strings.Page)+" "+(_helpPage+1)+"/"+pages.size(),Graphics.COLOR_LT_GRAY,Graphics.FONT_XTINY,Graphics.FONT_XTINY,_profile.contentWidth);}
-  function drawWrapped(dc,text,y){drawWrappedWidth(dc,text,y,_profile.y(190),_profile.detailWidth,_profile.rowPitch);}
-  function drawWrappedWidth(dc,text,y,bottom,maxWidth,lineHeight){var font=Graphics.FONT_XTINY;var pos=0;while(pos<text.length()&&y<=bottom){var end=pos+1;var fit=end;var breakAt=-1;while(end<=text.length()){var part=text.substring(pos,end);if(dc.getTextWidthInPixels(part,font)>maxWidth){break;}fit=end;if(part.substring(part.length()-1,part.length())==" "){breakAt=end;}end+=1;}if(fit<=pos){fit=pos+1;}else if(end<=text.length()&&breakAt>pos){fit=breakAt;}var line=text.substring(pos,fit);center(dc,y,font,line,Graphics.COLOR_LT_GRAY);pos=fit;while(pos<text.length()&&text.substring(pos,pos+1)==" "){pos+=1;}y+=lineHeight;}}
-  function drawGpsWarning(dc){_rowTop=244;title(dc,s(Rez.Strings.Acknowledge));centerFit(dc,_profile.y(120),_gpsQuality,Graphics.COLOR_RED,Graphics.FONT_SMALL,Graphics.FONT_XTINY,_profile.contentWidth);row(dc,0,s(Rez.Strings.YesUse),"");row(dc,1,s(Rez.Strings.Cancel),"");}
-  function drawDiscard(dc){_rowTop=244;title(dc,s(Rez.Strings.DiscardTitle));row(dc,0,s(Rez.Strings.Discard),"");row(dc,1,s(Rez.Strings.KeepEditing),"");}
-
-  function maxFocus(){if(_screen==LOCATE){return 8;}if(_screen==GPS){return 2;}if(isEditor()){return _digits.size()+1;}if(_screen==ATMOS){return 6;}if(_screen==RETICLE){return 2;}if(_screen==ACTIONS){return 3;}if(_screen==GPS_WARNING||_screen==DISCARD){return 1;}if(_screen==CALC_ERROR){return 2;}if(_screen==DETAILS){return detailsRows().size()-1+((_result!=null&&_result[:warning]!=null)?1:0);}return 0;}
-  function navigate(delta){if(isEditor()&&_editing){changeDigit(delta);WatchUi.requestUpdate();return;}if(_screen==ATMOS&&_editing){changeAtmos(delta);WatchUi.requestUpdate();return;}if(_screen==HELP){_helpPage+=delta;if(_helpPage<0){_helpPage=7;}if(_helpPage>7){_helpPage=0;}WatchUi.requestUpdate();return;}var max=maxFocus();var wrapped=wrapMenuFocus(_focus+delta,max,_scroll);_focus=wrapped[0];_scroll=wrapped[1];if(_screen==DETAILS){if(_focus==0){_scroll=0;}else if(_focus==max&&delta<0){_scroll=max;}WatchUi.requestUpdate();return;}if(_screen==LOCATE){_focus=locateVisibleFocus(_focus,delta,_model.hasLocation());}if(_screen==ATMOS){_focus=atmosphereVisibleFocus(_focus,delta,_model.pressureMode==1);ensureAtmosphereFocusVisible();}else{ensureFocusVisible();}WatchUi.requestUpdate();}
-  function open(screen){_screen=screen;_focus=0;_scroll=0;_rowHalfHeight=0;_magnified=false;if(screen==LOCATE){_rowHalfHeight=14;_rowTop=_profile.rowTop(116,_rowHalfHeight);}_editing=false;WatchUi.requestUpdate();}
-  function openAtmosphere(origin){_atmosphereReturn=origin;open(ATMOS);}
-  function closeAtmosphere(){_model.savePreferences();var target=_atmosphereReturn;open(target);_focus=target==ACTIONS?2:6;ensureFocusVisible();}
-  function handleMagnificationKey(key){if(_screen!=DISPLAY||_model.reticleType==RETICLE_GENERIC){return false;}var next=reticleMagnificationEndpoint(_magnified,key);if(next!=_magnified){_magnified=next;WatchUi.requestUpdate();}return true;}
-  function select(){if(_screen==LOCATE){selectLocate();}else if(_screen==GPS){selectGps();}else if(isEditor()){if(_focus==_digits.size()+1){commitEditor();}else{if(_editing){_editing=false;_focus+=1;ensureFocusVisible();}else{_editing=true;}WatchUi.requestUpdate();}}else if(_screen==ATMOS){selectAtmos();}else if(_screen==RETICLE){_model.reticleType=_focus;_model.savePreferences();openLocateFocus(5);}else if(_screen==DISPLAY){open(ACTIONS);}else if(_screen==ACTIONS){if(_focus==0){beginCalculation(false);}else if(_focus==1){open(LOCATE);}else if(_focus==2){openAtmosphere(ACTIONS);}else{open(DETAILS);}}else if(_screen==GPS_WARNING){if(_focus==0){acceptGps();}else{open(GPS);}}else if(_screen==DISCARD){if(_focus==0){_model.discardLocationChanges();WatchUi.popView(WatchUi.SLIDE_RIGHT);}else{open(LOCATE);}}else if(_screen==CALC_ERROR){if(_focus==0){beginCalculation(true);}else if(_focus==1){open(LOCATE);}else{open(DETAILS);}}}
-  function selectLocate(){if(_focus==0){beginEditor(EDIT_LAT);}else if(_focus==1){beginEditor(EDIT_LON);}else if(_focus==2){beginEditor(EDIT_ELEV);}else if(_focus==3){beginGps();}else if(_focus==4){_model.formatDms=!_model.formatDms;_model.savePreferences();}else if(_focus==5){_reticleOriginal=_model.reticleType;open(RETICLE);_focus=_model.reticleType;}else if(_focus==6){openAtmosphere(LOCATE);}else if(_focus==7){if(!_model.hasLocation()){return;}if(!_model.confirmed){_model.confirm();WatchUi.requestUpdate();}else{beginCalculation(false);}}else{open(HELP);}}
-  function selectAtmos(){if(_focus==0){_model.pressureMode=(_model.pressureMode+1)%3;_scroll=0;}else if((_focus==1&&_model.pressureMode==1)||_focus==2||_focus==3){_editing=!_editing;}else if(_focus==5){_model.calculationAlert=!_model.calculationAlert;}else if(_focus==6){closeAtmosphere();return;}WatchUi.requestUpdate();}
-  function changeAtmos(delta){if(_focus==1){_model.manualPressure+=delta*0.1;if(_model.manualPressure<300){_model.manualPressure=300;}if(_model.manualPressure>1100){_model.manualPressure=1100;}_model.manualPressureSet=true;}else if(_focus==2){_model.temperature+=delta;if(_model.temperature<(-80)){_model.temperature=-80;}if(_model.temperature>60){_model.temperature=60;}}else if(_focus==3){_model.humidity+=delta;if(_model.humidity<0){_model.humidity=0;}if(_model.humidity>100){_model.humidity=100;}}}
-  function tap(y){if(_screen==DISPLAY||_screen==HELP){select();return;}if(_screen==DETAILS){for(var d=0;d<_detailTops.size();d++){var detail=_detailTops[d];if(y>=detail[1]&&y<detail[1]+detail[2]){_focus=detail[0];WatchUi.requestUpdate();return;}}return;}var i=_scroll+((y-_rowTop+4)/_profile.rowPitch).toNumber();if(i<0){i=0;}if(_screen==ATMOS){var manual=_model.pressureMode==1;var visibleMax=atmosphereVisibleIndex(6,manual);if(i>visibleMax){i=visibleMax;}var item=atmosphereItemAt(i,manual);if(item==4){_editing=false;WatchUi.requestUpdate();return;}if(item!=_focus){_editing=false;}_focus=item;ensureAtmosphereFocusVisible();select();return;}if(i>maxFocus()){i=maxFocus();}if(_screen==LOCATE&&i==7&&!_model.hasLocation()){var disabledCenter=_rowTop+(7-_scroll)*_profile.rowPitch;i=locateVisibleFocus(i,y<disabledCenter?-1:1,false);}_focus=i;ensureFocusVisible();select();}
-  function openLocateFocus(focus){open(LOCATE);_focus=focus;ensureFocusVisible();}
-  function touchWakeOnly(){return _screen==DISPLAY;}
-  function back(){if(isEditor()){open(LOCATE);}else if(_screen==LOCATE){if(_model.savedLatitude!=null&&_model.hasUnconfirmedChanges()){open(DISCARD);}else{WatchUi.popView(WatchUi.SLIDE_RIGHT);}}else if(_screen==GPS){getApp().stopGps();stopTimers();open(LOCATE);}else if(_screen==CALC){_cancelRequested=true;}else if(_screen==DISPLAY){open(LOCATE);}else if(_screen==ACTIONS){beginCalculation(true);}else if(_screen==DETAILS){open(_result==null?CALC_ERROR:ACTIONS);}else if(_screen==RETICLE){_model.reticleType=_reticleOriginal;openLocateFocus(5);}else if(_screen==GPS_WARNING){open(GPS);}else if(_screen==DISCARD){open(LOCATE);}else if(_screen==ATMOS){closeAtmosphere();}else if(_screen==CALC_ERROR||_screen==HELP){_model.savePreferences();open(LOCATE);}}
-
-  function beginGps(){_gpsStarted=Time.now().value();_gpsLat=null;_gpsLon=null;_gpsElev=null;_gpsQuality="";_gpsWhen=null;_gpsError=null;open(GPS);try{getApp().startGps();}catch(e){_gpsError=s(Rez.Strings.Permission);}_timer.stop();_timer.start(method(:gpsTick),1000,true);}
-  function gpsTick(){WatchUi.requestUpdate();}
-  function onPosition(info){if(_screen!=GPS||info==null||info.position==null){return;}var d=info.position.toDegrees();_gpsLat=d[0];_gpsLon=d[1];_gpsElev=info.altitude==null?0.0:info.altitude;_gpsQualityCode=info.accuracy;_gpsQuality=qualityName(info.accuracy);_gpsWhen=info.when==null?null:info.when.value();_gpsReceived=Time.now().value();WatchUi.requestUpdate();}
-  function qualityName(q){if(q==Position.QUALITY_GOOD){return s(Rez.Strings.GoodGps);}if(q==Position.QUALITY_USABLE){return s(Rez.Strings.UsableGps);}if(q==Position.QUALITY_POOR){return s(Rez.Strings.PoorGps);}if(q==Position.QUALITY_LAST_KNOWN){return s(Rez.Strings.LastKnown);}return s(Rez.Strings.Unavailable);}
-  function selectGps(){if(_focus==0&&_gpsLat!=null){if(_gpsQualityCode==Position.QUALITY_POOR||_gpsQualityCode==Position.QUALITY_LAST_KNOWN){open(GPS_WARNING);}else{acceptGps();}}else if(_focus==1){getApp().stopGps();beginEditor(EDIT_LAT);}else if(_focus==2){getApp().stopGps();stopTimers();open(LOCATE);}}
-  function acceptGps(){getApp().stopGps();stopTimers();_model.setLocation(_gpsLat,_gpsLon,_gpsElev,"GPS",_gpsQuality);_model.confirm();open(LOCATE);}
-
-  function beginCalculation(restarting){if(!_model.confirmed||!_model.hasLocation()){showError(s(Rez.Strings.InvalidInputs));return;}if(_astroState!=null){Astrometry.cancel(_astroState);}_astroState=null;_restart=restarting;_magnified=false;_screen=CALC;_calcStage=0;_progress=0;_pressureAttempts=0;_pressureSamples=[];_cancelRequested=false;_result=null;_errorText=null;_eop=null;stopTimers();_timer.start(method(:calculationChunk),50,false);WatchUi.requestUpdate();}
-  function calculationChunk(){if(_cancelRequested){if(_astroState!=null){Astrometry.cancel(_astroState);_astroState=null;}_result=null;open(LOCATE);return;}try{if(_calcStage==0){if(samplePressure()){return;}_progress=25;_calcStage=1;}else if(_calcStage==1){loadEarthData();_progress=40;_calcStage=2;}else if(_calcStage==2){_resultTime=Time.now().value();beginAstronomy();_progress=50;_calcStage=3;}else if(_calcStage==3){if(!stepAstronomy()){_timer.start(method(:calculationChunk),50,false);WatchUi.requestUpdate();return;}_progress=90;_calcStage=4;}else if(_calcStage==4){checkVisibility();_progress=95;_calcStage=5;}else{finishCalculation();return;}_timer.start(method(:calculationChunk),50,false);WatchUi.requestUpdate();}catch(e){_astroState=null;showError(_errorText==null?s(Rez.Strings.AstronomyFailed):_errorText);}}
-  function samplePressure(){if(_model.pressureMode!=0){finalizePressure();return false;}_pressureAttempts+=1;var info=Sensor.getInfo();if(info!=null&&info.pressure!=null){_pressureSamples.add(info.pressure/100.0);}_progress=(_pressureAttempts*25)/8;WatchUi.requestUpdate();if(_pressureAttempts<8){_timer.start(method(:calculationChunk),500,false);return true;}finalizePressure();return false;}
-  function finalizePressure(){var now=Time.now().value();if(_model.pressureMode==2){_seaPressure=null;_observerPressure=0.0;_pressureSource=s(Rez.Strings.RefractionOff);return;}if(_model.pressureMode==1){_seaPressure=null;_observerPressure=_model.manualPressure;_pressureSource=s(Rez.Strings.Manual);return;}if(_pressureSamples.size()>0){var total=0.0;for(var i=0;i<_pressureSamples.size();i++){total+=_pressureSamples[i];}_seaPressure=total/_pressureSamples.size();_cachedSeaPressure=_seaPressure;_cachedPressureTime=now;_pressureSource=s(Rez.Strings.Barometer);_pressureTime=now;}else if(_cachedSeaPressure!=null&&now-_cachedPressureTime<=300){_seaPressure=_cachedSeaPressure;_pressureTime=_cachedPressureTime;_pressureSource=s(Rez.Strings.PressureRecent);}else if(_model.manualPressureSet){_seaPressure=null;_observerPressure=_model.manualPressure;_pressureSource=s(Rez.Strings.PressureFallback);return;}else{_seaPressure=1013.25;_pressureSource=s(Rez.Strings.StandardAtmosphere);_pressureTime=now;}var h=_model.elevation;var base=1.0-(0.0065*h)/(_model.temperature+273.15+0.0065*h);_observerPressure=_seaPressure*Math.pow(base,5.257);}
-  function loadEarthData(){var now=Time.now().value();var mjd=Astrometry.unixSecondsToJulianDate(now)-2400000.5d;_eop=IersEopData.eop(mjd);if(_eop[:status]!=0){_errorText=s(Rez.Strings.EarthUnsupported);throw new Lang.Exception();}_geoidOffset=GeoidData.geoidOffset(_model.latitude,_model.longitude);_ellipsoidHeight=GeoidData.mslToEllipsoid(_model.latitude,_model.longitude,_model.elevation);}
-  function beginAstronomy(){var jd=Astrometry.unixSecondsToJulianDate(_resultTime);var pi=Math.PI.toDouble();var rc=(2.0d+31.0d/60.0d+49.09d/3600.0d)*15.0d*pi/180.0d;var dc=(89.0d+15.0d/60.0d+50.8d/3600.0d)*pi/180.0d;var pmRaStarMasYr=44.22d;var prRadYr=Astrometry.properMotionPrRadYr(pmRaStarMasYr,dc);_astroState=Astrometry.begin(rc,dc,prRadYr,-11.74e-3d*pi/(180.0d*3600.0d),7.54e-3d,-16.0d,jd,0.0d,_eop[:dut1],_model.longitude.toDouble()*pi/180.0d,_model.latitude.toDouble()*pi/180.0d,_ellipsoidHeight.toDouble(),_eop[:xp],_eop[:yp],_observerPressure.toDouble(),_model.temperature.toDouble(),_model.humidity.toDouble()/100.0d,0.55d);}
-  // :anchor caches the expensive astrometry context needed by
-  // Astrometry.reticleAt(). Each display tick reevaluates Earth rotation,
-  // local ray geometry, refraction, and reticle projection at one captured
-  // timestamp; marker and readouts then consume that shared snapshot. The
-  // full-recomputation propagation test bounds context-aging error over the
-  // supported anchor interval.
-  function stepAstronomy(){var reply=Astrometry.step(_astroState);_astroState=reply[:state];_progress=50+(reply[:progress]*40).toNumber();if(!reply[:done]){return false;}var a=reply[:result];_astroState=null;if(a==null||a[:status]!=0){_errorText=s(Rez.Strings.AstronomyFailed);throw new Lang.Exception();}_result={:hourAngle=>a[:reticleHourAngle],:poleDistance=>a[:reticlePoleDistance],:anchor=>a[:reticleAnchor],:altitude=>(Math.PI.toDouble()/2.0d-a[:zob]),:warning=>(_eop[:warning]?Rez.Strings.EarthExpires:null)};return true;}
-  // Shared per-tick reticle solution: every display/readout consumer
-  // (drawDisplay, drawReticleDisplay, updateIoptronReadouts) calls this same
-  // function with the same elapsed-seconds value so they always agree on a
-  // single timestamped result, instead of each independently extrapolating
-  // hour angle and pole distance with their own formulas.
-  function reticleNow(elapsed){return Astrometry.reticleAt(_result[:anchor],elapsed);}
-  function checkVisibility(){if(_result[:altitude]<=0){_errorText=s(Rez.Strings.NotVisible);throw new Lang.Exception();}if(_model.reticleType!=RETICLE_GENERIC){var poleArcmin=_result[:poleDistance]*180.0/Math.PI*60.0;if(!ioptronFinite(_result[:hourAngle])||!ioptronFinite(_resultTime)||!reticleValidPoleDistance(_model.reticleType,poleArcmin)){_errorText=s(Rez.Strings.ReticleRangeError);throw new Lang.Exception();}}if(_result[:altitude]<5.0*Math.PI/180.0){_result[:warning]=Rez.Strings.WarningLow;}}
-  function showError(text){stopTimers();_errorText=text;_screen=CALC_ERROR;_focus=0;_scroll=0;if(_model.calculationAlert){Attention.vibrate([new Attention.VibeProfile(40,1),new Attention.VibeProfile(40,0),new Attention.VibeProfile(40,1)]);}WatchUi.requestUpdate();}
-  function finishCalculation(){_progress=100;_model.calculationSucceeded();_displayBase=_resultTime;_lastTick=Time.now().value();_lastAnchor=_lastTick;_restart=false;_reticleClockMinute=-1;_reticleOffset=formatPd(_result[:poleDistance]);var initialElapsed=_lastTick-_displayBase;if(_model.reticleType!=RETICLE_GENERIC){updateIoptronReadouts(initialElapsed);}else{_lastReticle=reticleNow(initialElapsed);}open(DISPLAY);_timer.start(method(:displayTick),1000,true);if(_model.calculationAlert){Attention.vibrate([new Attention.VibeProfile(50,1)]);}}
-  function displayTick(){if(_screen!=DISPLAY){stopTimers();return;}var now=Time.now().value();var delta=now-_lastTick;if(delta<0||delta>3){beginCalculation(true);return;}_lastTick=now;if(now-_lastAnchor>=900){beginCalculation(false);return;}var elapsed=now-_displayBase;if(_model.reticleType!=RETICLE_GENERIC){updateIoptronReadouts(elapsed);}else{_lastReticle=reticleNow(elapsed);}WatchUi.requestUpdate();}
+    private var _magnified = false;
+    static const LOCATE = 0;
+    static const GPS = 1;
+    static const EDIT_LAT = 2;
+    static const EDIT_LON = 3;
+    static const EDIT_ELEV = 4;
+    static const ATMOS = 5;
+    static const CALC = 6;
+    static const DISPLAY = 7;
+    static const ACTIONS = 8;
+    static const DETAILS = 9;
+    static const HELP = 10;
+    static const GPS_WARNING = 11;
+    static const DISCARD = 12;
+    static const CALC_ERROR = 13;
+    static const RETICLE = 14;
+    private var _profile;
+    private var _model;
+    private var _screen = LOCATE;
+    private var _focus = 0;
+    private var _scroll = 0;
+    private var _rowTop = 116;
+    private var _rowHalfHeight = 14;
+    private var _editing = false;
+    private var _atmosphereReturn = LOCATE;
+    private var _timer;
+    private var _gpsStarted = 0;
+    private var _gpsLat = null;
+    private var _gpsLon = null;
+    private var _gpsElev = null;
+    private var _gpsQuality = "";
+    private var _gpsQualityCode = 0;
+    private var _gpsReceived = 0;
+    private var _gpsWhen = null;
+    private var _gpsError = null;
+    private var _digits = [];
+    private var _negative = false;
+    private var _editOriginal = null;
+    private var _invalid = false;
+    private var _calcStage = 0;
+    private var _progress = 0;
+    private var _pressureAttempts = 0;
+    private var _pressureSamples = [];
+    private var _cancelRequested = false;
+    private var _restart = false;
+    private var _errorText = null;
+    private var _astroState = null;
+    private var _result = null;
+    private var _resultTime = null;
+    private var _displayBase = 0;
+    private var _lastTick = 0;
+    private var _lastAnchor = 0;
+    private var _seaPressure = null;
+    private var _observerPressure = 0.0;
+    private var _pressureSource = "";
+    private var _pressureTime = null;
+    private var _cachedSeaPressure = null;
+    private var _cachedPressureTime = null;
+    private var _eop = null;
+    private var _ellipsoidHeight = null;
+    private var _geoidOffset = null;
+    private var _helpPage = 0;
+    private var _reticleOriginal = RETICLE_GENERIC;
+    private var _markerPosition = [0.0, 0.0];
+    private var _detailHeights = [];
+    private var _detailTops = [];
+    private var _reticleClock = "12:00";
+    private var _reticleClockMinute = -1;
+    private var _reticleOffset = "";
+    private var _lastReticle = null;
+    
+    function initialize(model) {
+        View.initialize();
+        _model = model;
+        _timer = new Timer.Timer();
+    }
+    function onLayout(dc) {
+        _profile = new DisplayProfile(
+            dc.getWidth(),
+            dc.getHeight(),
+            dc.getFontHeight(Graphics.FONT_XTINY)
+        );
+    }
+    function stopTimers() {
+        if (_timer != null) {
+            _timer.stop();
+        }
+    }
+    function onHide() {
+        stopTimers();
+    }
+    function onAppInactive() {
+        stopTimers();
+        if (_astroState != null) {
+            Astrometry.cancel(_astroState);
+            _astroState = null;
+        }
+        if (_screen == CALC) {
+            _restart = true;
+        } else if (_screen == DISPLAY) {
+            _result = null;
+        }
+    }
+    function onAppActive() {
+        if (_screen == CALC && _restart) {
+            beginCalculation(true);
+        } else if (_screen == DISPLAY) {
+            beginCalculation(true);
+        }
+    }
+    function s(id) {
+        return Application.loadResource(id);
+    }
+    function title(dc, text) {
+        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(
+            _profile.centerX,
+            _profile.titleY,
+            Graphics.FONT_SMALL,
+            text,
+            Graphics.TEXT_JUSTIFY_CENTER
+        );
+    }
+    function center(dc, y, font, text, color) {
+        dc.setColor(color, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(
+            _profile.centerX,
+            y,
+            font,
+            text,
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER
+        );
+    }
+    function centerFit(dc, y, text, color, preferred, fallback, maxWidth) {
+        var font = preferred;
+        if (dc.getTextWidthInPixels(text, font) > maxWidth) {
+            font = fallback;
+            if (dc.getTextWidthInPixels(text, font) > maxWidth) {
+                font = Graphics.FONT_XTINY;
+                if (dc.getTextWidthInPixels(text, font) > maxWidth) {
+                    return false;
+                }
+            }
+        }
+        center(dc, y, font, text, color);
+        return true;
+    }
+    function footer(dc, text) {
+        center(dc, _profile.footerY, Graphics.FONT_XTINY, text, Graphics.COLOR_DK_GRAY);
+    }
+    function ensureFocusVisible() {
+        if (_rowHalfHeight > 0) {
+            _scroll = focusVisibleScroll(
+                _rowTop,
+                _profile.rowPitch,
+                _rowHalfHeight,
+                _profile.drawableTop,
+                _profile.drawableBottom,
+                _focus,
+                _scroll
+            );
+        }
+    }
+    function ensureAtmosphereFocusVisible() {
+        if (_rowHalfHeight > 0) {
+            var visibleFocus = atmosphereVisibleIndex(_focus, _model.pressureMode == 1);
+            _scroll = focusVisibleScroll(
+                _rowTop,
+                _profile.rowPitch,
+                _rowHalfHeight,
+                _profile.drawableTop,
+                _profile.drawableBottom,
+                visibleFocus,
+                _scroll
+            );
+        }
+    }
+    function row(dc, index, label, value) {
+        rowAt(dc, index, _focus, label, value);
+    }
+    function rowAt(dc, index, focusIndex, label, value) {
+        var font = Graphics.FONT_XTINY;
+        var fh = dc.getFontHeight(font);
+        var rh = fh + 8;
+        if (index == 0) {
+            _rowHalfHeight = rh / 2;
+            _rowTop = _profile.rowTop(_rowTop, _rowHalfHeight);
+            if (_screen == ATMOS) {
+                ensureAtmosphereFocusVisible();
+            } else {
+                ensureFocusVisible();
+            }
+        }
+        var cy = _rowTop + (index - _scroll) * _profile.rowPitch;
+        if (cy - rh / 2 < _profile.drawableTop || cy + rh / 2 > _profile.drawableBottom) {
+            return;
+        }
+        if (index == focusIndex) {
+            var focusHeight = _profile.rowPitch - 4;
+            dc.setColor(0x330000, Graphics.COLOR_TRANSPARENT);
+            dc.fillRoundedRectangle(
+                _profile.rowLeft,
+                cy - focusHeight / 2,
+                _profile.contentWidth,
+                focusHeight,
+                8
+            );
+            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+            dc.setPenWidth(2);
+            dc.drawRoundedRectangle(
+                _profile.rowLeft,
+                cy - focusHeight / 2,
+                _profile.contentWidth,
+                focusHeight,
+                8
+            );
+            if (_editing) {
+                dc.fillRectangle(_profile.rowLeft + 7, cy - 4, 8, 8);
+            }
+        }
+        var vjust = Graphics.TEXT_JUSTIFY_VCENTER;
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(_profile.labelX, cy, font, label, Graphics.TEXT_JUSTIFY_LEFT | vjust);
+        if (value != null) {
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_profile.valueX, cy, font, value, Graphics.TEXT_JUSTIFY_RIGHT | vjust);
+        }
+    }
+    function onUpdate(dc) {
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.clear();
+        if (_screen == LOCATE) {
+            drawLocate(dc);
+        } else if (_screen == GPS) {
+            drawGps(dc);
+        } else if (isEditor()) {
+            drawEditor(dc);
+        } else if (_screen == ATMOS) {
+            drawAtmos(dc);
+        } else if (_screen == RETICLE) {
+            drawReticleChoice(dc);
+        } else if (_screen == CALC) {
+            drawCalc(dc);
+        } else if (_screen == DISPLAY) {
+            drawDisplay(dc);
+        } else if (_screen == ACTIONS) {
+            drawActions(dc);
+        } else if (_screen == DETAILS) {
+            drawDetails(dc);
+        } else if (_screen == HELP) {
+            drawHelp(dc);
+        } else if (_screen == GPS_WARNING) {
+            drawGpsWarning(dc);
+        } else if (_screen == DISCARD) {
+            drawDiscard(dc);
+        } else if (_screen == CALC_ERROR) {
+            drawError(dc);
+        }
+    }
+    
+    function reticleText() {
+        if (_model.reticleType == RETICLE_IOPTRON) {
+            return s(Rez.Strings.Ioptron);
+        }
+        if (_model.reticleType == RETICLE_SIFO) {
+            return s(Rez.Strings.Sifo);
+        }
+        return s(Rez.Strings.Generic);
+    }
+    function drawLocate(dc) {
+        var first = _model.firstUse && !_model.hasLocation();
+        var titleHeight = dc.getFontHeight(Graphics.FONT_SMALL);
+        var hintTop = _profile.titleY + titleHeight + 2;
+        _rowTop = 116;
+        row(dc, 0, s(Rez.Strings.Latitude), coord(_model.latitude, true));
+        row(dc, 1, s(Rez.Strings.Longitude), coord(_model.longitude, false));
+        row(
+            dc,
+            2,
+            s(Rez.Strings.Elevation),
+            _model.elevation == null
+                ? s(Rez.Strings.NoLocation)
+                : _model.elevation.format("%.0f") + " m"
+        );
+        row(dc, 3, s(Rez.Strings.Gps), "");
+        row(
+            dc,
+            4,
+            s(Rez.Strings.Format),
+            _model.formatDms ? s(Rez.Strings.Dms) : s(Rez.Strings.Decimal)
+        );
+        row(dc, 5, s(Rez.Strings.Reticle), reticleText());
+        row(dc, 6, s(Rez.Strings.Atmosphere), "");
+        row(
+            dc,
+            7,
+            _model.confirmed ? s(Rez.Strings.Calculate) : s(Rez.Strings.ConfirmLocation),
+            ""
+        );
+        row(dc, 8, s(Rez.Strings.Help), "");
+        title(dc, s(Rez.Strings.Locate));
+        if (first) {
+            centerFit(
+                dc,
+                hintTop,
+                s(Rez.Strings.FirstUse),
+                Graphics.COLOR_LT_GRAY,
+                Graphics.FONT_XTINY,
+                Graphics.FONT_XTINY,
+                _profile.contentWidth
+            );
+        }
+        if (_model.hasLocation()) {
+            footer(dc, s(Rez.Strings.Source) + ": " + sourceText());
+        }
+    }
+    function drawReticleChoice(dc) {
+        _rowTop = 170;
+        title(dc, s(Rez.Strings.Reticle));
+        row(dc, 0, s(Rez.Strings.Generic), "");
+        row(dc, 1, s(Rez.Strings.Ioptron), "");
+        row(dc, 2, s(Rez.Strings.Sifo), "");
+    }
+    function sourceText() {
+        if (_model.adjusted) {
+            return s(Rez.Strings.GpsAdjusted);
+        }
+        if (_model.source == "GPS") {
+            return "GPS";
+        }
+        if (_model.source == "Manual") {
+            return s(Rez.Strings.Manual);
+        }
+        return s(Rez.Strings.Saved);
+    }
+    function coord(value, isLat) {
+        if (value == null) {
+            return s(Rez.Strings.NoLocation);
+        }
+        var a = value.abs();
+        var hemi = isLat ? (value < 0 ? "S" : "N") : (value < 0 ? "W" : "E");
+        if (!_model.formatDms) {
+            return a.format("%.5f") + "° " + hemi;
+        }
+        var d = a.toNumber();
+        var mf = (a - d) * 60.0;
+        var m = mf.toNumber();
+        var sec = Math.round((mf - m) * 60.0).toNumber();
+        if (sec == 60) {
+            sec = 0;
+            m += 1;
+        }
+        if (m == 60) {
+            m = 0;
+            d += 1;
+        }
+        return Lang.format("$1$°$2$′$3$″ $4$", [d, m, sec, hemi]);
+    }
+    
+    function drawGps(dc) {
+        _rowTop = 276;
+        title(dc, s(Rez.Strings.GpsTitle));
+        var elapsed = Time.now().value() - _gpsStarted;
+        var state = _gpsError != null
+            ? _gpsError
+            : (
+                _gpsLat == null
+                    ? (elapsed >= 60 ? s(Rez.Strings.NoFix) : s(Rez.Strings.Searching))
+                    : _gpsQuality
+            );
+        centerFit(
+            dc,
+            _profile.y(75),
+            state,
+            Graphics.COLOR_WHITE,
+            Graphics.FONT_SMALL,
+            Graphics.FONT_XTINY,
+            _profile.contentWidth
+        );
+        center(
+            dc,
+            _profile.y(112),
+            Graphics.FONT_XTINY,
+            s(Rez.Strings.Elapsed) + ": " + formatElapsed(elapsed),
+            Graphics.COLOR_LT_GRAY
+        );
+        if (_gpsLat != null) {
+            center(
+                dc,
+                _profile.y(148),
+                Graphics.FONT_XTINY,
+                coord(_gpsLat, true),
+                Graphics.COLOR_LT_GRAY
+            );
+            center(
+                dc,
+                _profile.y(174),
+                Graphics.FONT_XTINY,
+                coord(_gpsLon, false),
+                Graphics.COLOR_LT_GRAY
+            );
+            center(
+                dc,
+                _profile.y(200),
+                Graphics.FONT_XTINY,
+                _gpsElev.format("%.0f") + " m",
+                Graphics.COLOR_LT_GRAY
+            );
+            if (_gpsQualityCode == Position.QUALITY_LAST_KNOWN && _gpsWhen != null) {
+                center(
+                    dc,
+                    _profile.y(224),
+                    Graphics.FONT_XTINY,
+                    s(Rez.Strings.Age) + ": " + formatElapsed(Time.now().value() - _gpsWhen),
+                    Graphics.COLOR_DK_GRAY
+                );
+            }
+        }
+        row(dc, 0, s(Rez.Strings.UseLocation), _gpsLat == null ? "—" : "");
+        row(dc, 1, s(Rez.Strings.EnterManual), "");
+        row(dc, 2, s(Rez.Strings.Cancel), "");
+        centerFit(
+            dc,
+            _profile.footerY,
+            "START",
+            Graphics.COLOR_DK_GRAY,
+            Graphics.FONT_XTINY,
+            Graphics.FONT_XTINY,
+            _profile.contentWidth
+        );
+    }
+    function formatElapsed(n) {
+        return Lang.format("$1$:$2$", [(n / 60).format("%02d"), (n % 60).format("%02d")]);
+    }
+    
+    function isEditor() {
+        return _screen == EDIT_LAT || _screen == EDIT_LON || _screen == EDIT_ELEV;
+    }
+    function beginEditor(screen) {
+        _screen = screen;
+        _focus = 0;
+        _scroll = 0;
+        _editing = false;
+        _invalid = false;
+        _editOriginal = screen == EDIT_LAT
+            ? _model.latitude
+            : (screen == EDIT_LON ? _model.longitude : _model.elevation);
+        var v = _editOriginal == null ? 0.0 : _editOriginal;
+        _negative = v < 0;
+        _digits = [];
+        var count = screen == EDIT_LAT ? 7 : (screen == EDIT_LON ? 8 : 5);
+        var scaled;
+        if (screen == EDIT_ELEV) {
+            scaled = Math.round(v.abs()).toNumber();
+        } else if (_model.formatDms) {
+            var a = v.abs();
+            var d = a.toNumber();
+            var mm = (a - d) * 60.0;
+            var m = mm.toNumber();
+            var sec = Math.round((mm - m) * 60.0).toNumber();
+            scaled = d * 10000 + m * 100 + sec;
+            count = (screen == EDIT_LAT ? 6 : 7);
+        } else {
+            scaled = Math.round(v.abs() * 100000.0).toNumber();
+        }
+        for (var i = count - 1; i >= 0; i--) {
+            _digits.add((scaled / Math.pow(10, i)).toNumber() % 10);
+        }
+        WatchUi.requestUpdate();
+    }
+    function digitLabel(i) {
+        if (i == 0) {
+            return s(_screen == EDIT_ELEV ? Rez.Strings.Sign : Rez.Strings.Hemisphere);
+        }
+        if (_screen == EDIT_ELEV) {
+            var p = 4 - (i - 1);
+            return p == 0 ? "m" : "m x " + Math.pow(10, p).format("%d");
+        }
+        var degreeDigits = _screen == EDIT_LAT ? 2 : 3;
+        if (i <= degreeDigits) {
+            return "° x " + Math.pow(10, degreeDigits - i).format("%d");
+        }
+        if (_model.formatDms) {
+            var j = i - degreeDigits;
+            return j <= 2 ? (j == 1 ? "′ x 10" : "′ x 1") : (j == 3 ? "″ x 10" : "″ x 1");
+        }
+        var f = i - degreeDigits;
+        return "° x 0." + repeatZero(f - 1) + "1";
+    }
+    function repeatZero(n) {
+        var x = "";
+        for (var i = 0; i < n; i++) {
+            x += "0";
+        }
+        return x;
+    }
+    function editorValue(i) {
+        if (i == 0) {
+            if (_screen == EDIT_LAT) {
+                return _negative ? "S" : "N";
+            }
+            if (_screen == EDIT_LON) {
+                return _negative ? "W" : "E";
+            }
+            return _negative ? "-" : "+";
+        }
+        return _digits[i - 1].toString();
+    }
+    function drawEditor(dc) {
+        _rowTop = 82;
+        title(
+            dc,
+            s(
+                _screen == EDIT_LAT
+                    ? Rez.Strings.EditLatitude
+                    : (_screen == EDIT_LON ? Rez.Strings.EditLongitude : Rez.Strings.EditElevation)
+            )
+        );
+        for (var i = 0; i <= _digits.size(); i++) {
+            row(dc, i, digitLabel(i), editorValue(i));
+        }
+        row(dc, _digits.size() + 1, s(Rez.Strings.Done), "");
+        if (_invalid) {
+            centerFit(
+                dc,
+                _profile.y(374),
+                s(Rez.Strings.InvalidCoordinate),
+                Graphics.COLOR_RED,
+                Graphics.FONT_XTINY,
+                Graphics.FONT_XTINY,
+                _profile.contentWidth
+            );
+        }
+        footer(dc, _editing ? s(Rez.Strings.Changing) : s(Rez.Strings.SelectDigit));
+    }
+    function changeDigit(delta) {
+        if (_focus == 0) {
+            _negative = !_negative;
+            return;
+        }
+        var idx = _focus - 1;
+        var max = 9;
+        if (_model.formatDms && _screen != EDIT_ELEV) {
+            var dd = _screen == EDIT_LAT ? 2 : 3;
+            var part = idx + 1 - dd;
+            if (part == 1 || part == 3) {
+                max = 5;
+            }
+        }
+        var v = _digits[idx] + delta;
+        if (v < 0) {
+            v = max;
+        }
+        if (v > max) {
+            v = 0;
+        }
+        _digits[idx] = v;
+        _invalid = false;
+    }
+    function editorNumber() {
+        var total = 0;
+        for (var i = 0; i < _digits.size(); i++) {
+            total = total * 10 + _digits[i];
+        }
+        var v;
+        if (_screen == EDIT_ELEV) {
+            v = total;
+        } else if (_model.formatDms) {
+            var d = (total / 10000).toNumber();
+            var m = ((total % 10000) / 100).toNumber();
+            var sec = total % 100;
+            v = d + m / 60.0 + sec / 3600.0;
+        } else {
+            v = total / 100000.0;
+        }
+        return _negative ? -v : v;
+    }
+    function commitEditor() {
+        var v = editorNumber();
+        var av = v.abs();
+        var max = _screen == EDIT_LAT ? 90.0 : (_screen == EDIT_LON ? 180.0 : 99999.0);
+        if (av > max) {
+            _invalid = true;
+            _focus = 1;
+            _scroll = 0;
+            return;
+        }
+        if (_screen != EDIT_ELEV && _model.formatDms) {
+            var total = 0;
+            for (var i = 0; i < _digits.size(); i++) {
+                total = total * 10 + _digits[i];
+            }
+            var d = (total / 10000).toNumber();
+            var m = ((total % 10000) / 100).toNumber();
+            var sec = total % 100;
+            if (m > 59) {
+                _invalid = true;
+                _focus = _digits.size() - 3;
+                return;
+            }
+            if (sec > 59) {
+                _invalid = true;
+                _focus = _digits.size() - 1;
+                return;
+            }
+            if (d == max && (m != 0 || sec != 0)) {
+                _invalid = true;
+                _focus = _digits.size() - 3;
+                return;
+            }
+        } else if (_screen != EDIT_ELEV && av == max) {
+            var whole = av.toNumber();
+            if (av - whole > 0) {
+                _invalid = true;
+                _focus = (_screen == EDIT_LAT ? 3 : 4);
+                return;
+            }
+        }
+        if (_screen == EDIT_LAT) {
+            _model.latitude = v;
+        } else if (_screen == EDIT_LON) {
+            _model.longitude = v;
+        } else {
+            _model.elevation = v;
+        }
+        _model.adjusted = _model.source == "GPS";
+        if (!_model.adjusted) {
+            _model.source = "Manual";
+        }
+        _model.confirmed = false;
+        open(LOCATE);
+    }
+    
+    function drawAtmos(dc) {
+        var manual = _model.pressureMode == 1;
+        _rowTop = centeredMenuRowTop(_profile, manual ? 7 : 6);
+        title(dc, s(Rez.Strings.Atmosphere));
+        var focusIndex = atmosphereVisibleIndex(_focus, manual);
+        var mode = _model.pressureMode == 0
+            ? s(Rez.Strings.Automatic)
+            : (manual ? s(Rez.Strings.PressureManual) : s(Rez.Strings.RefractionOff));
+        var i = 0;
+        rowAt(dc, i, focusIndex, s(Rez.Strings.Pressure), mode);
+        i += 1;
+        if (manual) {
+            rowAt(
+                dc,
+                i,
+                focusIndex,
+                s(Rez.Strings.AtmosphereValue),
+                _model.manualPressure.format("%.1f") + " hPa"
+            );
+            i += 1;
+        }
+        rowAt(
+            dc,
+            i,
+            focusIndex,
+            s(Rez.Strings.Temperature),
+            _model.temperature.format("%.1f") + "°C"
+        );
+        i += 1;
+        rowAt(dc, i, focusIndex, s(Rez.Strings.Humidity), _model.humidity.format("%.0f") + "%");
+        i += 1;
+        rowAt(dc, i, focusIndex, s(Rez.Strings.Wavelength), "0.55 um");
+        i += 1;
+        rowAt(
+            dc,
+            i,
+            focusIndex,
+            s(Rez.Strings.Alert),
+            _model.calculationAlert ? s(Rez.Strings.On) : s(Rez.Strings.Off)
+        );
+        i += 1;
+        rowAt(dc, i, focusIndex, s(Rez.Strings.Done), "");
+    }
+    
+    function drawCalc(dc) {
+        title(dc, _restart ? s(Rez.Strings.Restarting) : s(Rez.Strings.Calculating));
+        var labels = [
+            Rez.Strings.ReadingPressure,
+            Rez.Strings.LoadingEarth,
+            Rez.Strings.ConvertingTime,
+            Rez.Strings.CalculatingPolaris,
+            Rez.Strings.ObserverCorrections,
+            Rez.Strings.PreparingDisplay
+        ];
+        centerFit(
+            dc,
+            _profile.y(120),
+            s(labels[_calcStage]),
+            Graphics.COLOR_LT_GRAY,
+            Graphics.FONT_SMALL,
+            Graphics.FONT_XTINY,
+            _profile.contentWidth
+        );
+        var barX = _profile.rowLeft;
+        var barY = _profile.y(190);
+        var barWidth = _profile.contentWidth;
+        var barHeight = _profile.height <= 260 ? 10 : 20;
+        dc.setColor(0x330000, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(barX, barY, barWidth, barHeight);
+        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(barX, barY, (barWidth * _progress) / 100, barHeight);
+        dc.drawRectangle(barX, barY, barWidth, barHeight);
+        center(
+            dc,
+            _profile.y(230),
+            Graphics.FONT_SMALL,
+            _progress.format("%d") + "%",
+            Graphics.COLOR_WHITE
+        );
+        footer(dc, s(Rez.Strings.CancelHint));
+    }
+    function drawError(dc) {
+        _rowTop = 250;
+        title(dc, s(Rez.Strings.CalculationError));
+        drawWrapped(dc, _errorText, _profile.y(85));
+        row(dc, 0, s(Rez.Strings.TryAgain), "");
+        row(dc, 1, s(Rez.Strings.BackLocation), "");
+        row(dc, 2, s(Rez.Strings.Details), "");
+    }
+    function drawDisplay(dc) {
+        if (_model.reticleType != RETICLE_GENERIC) {
+            drawReticleDisplay(dc);
+            return;
+        }
+        centerFit(
+            dc,
+            _profile.y(50),
+            s(Rez.Strings.HourAngle),
+            Graphics.COLOR_RED,
+            Graphics.FONT_XTINY,
+            Graphics.FONT_XTINY,
+            _profile.contentWidth
+        );
+        if (_result == null) {
+            center(dc, _profile.y(170), Graphics.FONT_LARGE, "—", Graphics.COLOR_DK_GRAY);
+            return;
+        }
+        var rn = _lastReticle;
+        if (rn == null) {
+            rn = reticleNow(Time.now().value() - _displayBase);
+        }
+        var ha = rn[:hourAngle];
+        var pd = rn[:poleDistance];
+        centerFit(
+            dc,
+            _profile.y(119),
+            formatHa(ha),
+            Graphics.COLOR_RED,
+            Graphics.FONT_LARGE,
+            Graphics.FONT_SMALL,
+            _profile.contentWidth
+        );
+        center(
+            dc,
+            _profile.y(188),
+            Graphics.FONT_XTINY,
+            s(Rez.Strings.PoleDistance),
+            Graphics.COLOR_LT_GRAY
+        );
+        centerFit(
+            dc,
+            _profile.y(245),
+            formatPd(pd),
+            Graphics.COLOR_RED,
+            Graphics.FONT_SMALL,
+            Graphics.FONT_XTINY,
+            _profile.contentWidth
+        );
+        centerFit(
+            dc,
+            _profile.y(305),
+            localDateTime(),
+            Graphics.COLOR_LT_GRAY,
+            Graphics.FONT_XTINY,
+            Graphics.FONT_XTINY,
+            _profile.contentWidth
+        );
+        if (_result[:warning] != null) {
+            drawWrappedWidth(
+                dc,
+                s(_result[:warning]),
+                _profile.y(354),
+                _profile.footerY,
+                _profile.detailWidth,
+                _profile.rowPitch
+            );
+            return;
+        }
+        centerFit(
+            dc,
+            _profile.y(352),
+            sourceText(),
+            Graphics.COLOR_LT_GRAY,
+            Graphics.FONT_XTINY,
+            Graphics.FONT_XTINY,
+            _profile.contentWidth
+        );
+        centerFit(
+            dc,
+            _profile.y(402),
+            s(Rez.Strings.SelectAction),
+            Graphics.COLOR_LT_GRAY,
+            Graphics.FONT_XTINY,
+            Graphics.FONT_XTINY,
+            _profile.contentWidth
+        );
+    }
+    function drawReticleDisplay(dc) {
+        if (_result == null) {
+            return;
+        }
+        var cx = _profile.centerX.toFloat();
+        var cy = _profile.centerY.toFloat();
+        var r70 = reticleAngularRadius(_model.reticleType, _profile.reticleRadius);
+        var maxPoleDistance = reticleMaximumPoleDistance(_model.reticleType);
+        var rn = _lastReticle;
+        if (rn == null) {
+            rn = reticleNow(Time.now().value() - _displayBase);
+        }
+        var poleArcmin = rn[:poleDistance] * 180.0 / Math.PI * 60.0;
+        var markerValid = ioptronMarkerPosition(
+            _markerPosition,
+            rn[:hourAngle],
+            0.0,
+            poleArcmin,
+            cx,
+            cy,
+            r70,
+            maxPoleDistance
+        );
+        if (!reticleMagnificationAllowed(_model.reticleType, markerValid)) {
+            _magnified = false;
+        }
+        var red = Graphics.COLOR_RED;
+        if (_magnified) {
+            var mx = _markerPosition[0].toNumber();
+            var my = _markerPosition[1].toNumber();
+            var artCx = magnifiedReticleCoordinate(cx, mx, cx);
+            var artCy = magnifiedReticleCoordinate(cy, my, cy);
+            drawReticleArtwork(
+                dc,
+                artCx,
+                artCy,
+                r70 * RETICLE_MAGNIFICATION,
+                markerValid,
+                RETICLE_MAGNIFICATION,
+                cx,
+                cy
+            );
+        } else {
+            drawReticleArtwork(
+                dc,
+                cx,
+                cy,
+                r70,
+                markerValid,
+                1,
+                _markerPosition[0].toNumber(),
+                _markerPosition[1].toNumber()
+            );
+        }
+        if (!_magnified) {
+            drawIoptronReadout(dc, cy - _profile.y(37), _reticleClock, red);
+            drawIoptronReadout(dc, cy + _profile.y(37), _reticleOffset, red);
+            if (_result[:warning] != null) {
+                drawIoptronWarning(dc, red);
+            }
+        }
+    }
+    function drawReticleArtwork(dc, cx, cy, r70, markerValid, scale, markerX, markerY) {
+        var red = Graphics.COLOR_RED;
+        var outerScale = reticleShowsOuterScale(_model.reticleType);
+        dc.setColor(red, Graphics.COLOR_TRANSPARENT);
+        dc.setPenWidth((2 * scale).toNumber());
+        var r36 = ioptronRingRadius(36.0, r70);
+        dc.drawLine((cx - r36).toNumber(), cy.toNumber(), (cx + r36).toNumber(), cy.toNumber());
+        dc.drawLine(cx.toNumber(), (cy - r36).toNumber(), cx.toNumber(), (cy + r36).toNumber());
+        dc.drawCircle(cx.toNumber(), cy.toNumber(), ioptronRingRadius(4.0, r70).toNumber());
+        dc.drawCircle(cx.toNumber(), cy.toNumber(), r36.toNumber());
+        dc.drawCircle(cx.toNumber(), cy.toNumber(), ioptronRingRadius(40.0, r70).toNumber());
+        dc.drawCircle(cx.toNumber(), cy.toNumber(), ioptronRingRadius(44.0, r70).toNumber());
+        if (outerScale) {
+            dc.drawCircle(cx.toNumber(), cy.toNumber(), ioptronRingRadius(60.0, r70).toNumber());
+            dc.drawCircle(cx.toNumber(), cy.toNumber(), ioptronRingRadius(65.0, r70).toNumber());
+            dc.drawCircle(cx.toNumber(), cy.toNumber(), r70.toNumber());
+        }
+        for (var k = 0; k < 36; k++) {
+            var angle = k * Math.PI / 18.0;
+            var tickClass = ioptronTickClass(k);
+            dc.setPenWidth(((tickClass == 0 ? 2 : 1) * scale).toNumber());
+            drawIoptronTick(dc, angle, 36.0, 44.0, k, r70, cx, cy);
+            if (outerScale) {
+                drawIoptronTick(dc, angle, 60.0, 70.0, k, r70, cx, cy);
+            }
+        }
+        if (outerScale && !_magnified) {
+            var r52 = ioptronRingRadius(52.0, r70);
+            var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+            for (var n = 1; n <= 12; n++) {
+                var numeralAngle = (n % 12) * Math.PI / 6.0;
+                var tx = (cx + r52 * Math.sin(numeralAngle)).toNumber();
+                var ty = (cy - r52 * Math.cos(numeralAngle)).toNumber();
+                var text = n.toString();
+                dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(tx - 1, ty - 1, Graphics.FONT_XTINY, text, justify);
+                dc.drawText(tx, ty - 1, Graphics.FONT_XTINY, text, justify);
+                dc.drawText(tx + 1, ty - 1, Graphics.FONT_XTINY, text, justify);
+                dc.drawText(tx - 1, ty, Graphics.FONT_XTINY, text, justify);
+                dc.drawText(tx + 1, ty, Graphics.FONT_XTINY, text, justify);
+                dc.drawText(tx - 1, ty + 1, Graphics.FONT_XTINY, text, justify);
+                dc.drawText(tx, ty + 1, Graphics.FONT_XTINY, text, justify);
+                dc.drawText(tx + 1, ty + 1, Graphics.FONT_XTINY, text, justify);
+                dc.setColor(red, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(tx, ty, Graphics.FONT_XTINY, text, justify);
+            }
+        }
+        if (markerValid) {
+            if (_magnified) {
+                dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+                dc.setPenWidth(1);
+                dc.drawLine(0, markerY.toNumber(), _profile.width - 1, markerY.toNumber());
+                dc.drawLine(markerX.toNumber(), 0, markerX.toNumber(), _profile.height - 1);
+            } else {
+                var marker = _profile.markerRadius;
+                dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+                dc.fillCircle(markerX.toNumber(), markerY.toNumber(), marker + 2);
+                dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+                dc.fillCircle(markerX.toNumber(), markerY.toNumber(), marker);
+            }
+        }
+    }
+    function drawIoptronReadout(dc, y, text, color) {
+        var font = Graphics.FONT_XTINY;
+        var height = dc.getFontHeight(font);
+        var width = dc.getTextWidthInPixels(text, font) + 12;
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+        dc.fillRoundedRectangle(_profile.centerX - width / 2, y - height / 2, width, height, 4);
+        dc.setColor(color, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(
+            _profile.centerX,
+            y,
+            font,
+            text,
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER
+        );
+    }
+    function updateIoptronReadouts(elapsed) {
+        var rn = reticleNow(elapsed);
+        _lastReticle = rn;
+        _reticleOffset = formatPd(rn[:poleDistance]);
+        var seconds = ioptronReticleClockSeconds(rn[:hourAngle]);
+        var minute = (seconds / 60).toNumber();
+        if (minute != _reticleClockMinute) {
+            _reticleClockMinute = minute;
+            var hour = (seconds / 3600).toNumber();
+            if (hour == 0) {
+                hour = 12;
+            }
+            var minutePart = ((seconds % 3600) / 60).toNumber();
+            _reticleClock = Lang.format(
+                "$1$:$2$",
+                [hour.format("%02d"), minutePart.format("%02d")]
+            );
+        }
+    }
+    function drawIoptronWarning(dc, red) {
+        var warning = _result[:warning] == Rez.Strings.WarningLow
+            ? Rez.Strings.ReticleWarningLow
+            : Rez.Strings.ReticleWarningEarth;
+        var text = s(warning);
+        var font = Graphics.FONT_XTINY;
+        var height = dc.getFontHeight(font);
+        var bottom = _profile.y(47);
+        var y = bottom - height / 2;
+        var top = bottom - height;
+        var dy = _profile.centerY - top;
+        var safeRadius = _profile.reticleSafeRadius;
+        var radicand = safeRadius * safeRadius - dy * dy;
+        var safeWidth = 0;
+        if (radicand > 16.0) {
+            safeWidth = (2.0 * Math.sqrt(radicand) - 8.0).toNumber();
+        }
+        var textWidth = dc.getTextWidthInPixels(text, font);
+        if (textWidth + 12 <= safeWidth) {
+            var width = textWidth + 12;
+            dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+            dc.fillRoundedRectangle(_profile.centerX - width / 2, top, width, height, 4);
+            dc.setColor(red, Graphics.COLOR_TRANSPARENT);
+            dc.setPenWidth(1);
+            dc.drawRoundedRectangle(_profile.centerX - width / 2, top, width, height, 4);
+            dc.drawText(
+                _profile.centerX,
+                y,
+                font,
+                text,
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER
+            );
+        } else {
+            dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+            dc.fillCircle(_profile.centerX, y, 10);
+            dc.setColor(red, Graphics.COLOR_TRANSPARENT);
+            dc.setPenWidth(2);
+            dc.drawCircle(_profile.centerX, y, 9);
+            dc.drawText(
+                _profile.centerX,
+                y,
+                font,
+                "!",
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER
+            );
+        }
+    }
+    function formatHa(rad) {
+        var v = rad - Math.floor(rad / Math.PI) * Math.PI;
+        if (v < 0) {
+            v += Math.PI;
+        }
+        var n = Math.round(v * 43200.0 / Math.PI).toNumber() % 43200;
+        return Lang.format(
+            "$1$:$2$:$3$",
+            [
+                ((n / 3600).toNumber()).format("%02d"),
+                (((n % 3600) / 60).toNumber()).format("%02d"),
+                (n % 60).format("%02d")
+            ]
+        );
+    }
+    function formatPd(rad) {
+        var n = Math.round(rad * 180.0 / Math.PI * 3600.0).toNumber();
+        return Lang.format("$1$′ $2$″", [(n / 60).toNumber(), n % 60]);
+    }
+    function localDateTime() {
+        var date = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
+        var c = System.getClockTime();
+        var h = c.hour;
+        var suffix = "";
+        if (!System.getDeviceSettings().is24Hour) {
+            suffix = " " + s(h < 12 ? Rez.Strings.Am : Rez.Strings.Pm);
+            h = h % 12;
+            if (h == 0) {
+                h = 12;
+            }
+        }
+        return Lang.format(
+            "$1$-$2$-$3$  $4$:$5$:$6$$7$",
+            [
+                date.year,
+                date.month,
+                date.day,
+                h.format("%02d"),
+                c.min.format("%02d"),
+                c.sec.format("%02d"),
+                suffix
+            ]
+        );
+    }
+    function drawActions(dc) {
+        _rowTop = 104;
+        title(dc, s(Rez.Strings.Actions));
+        row(dc, 0, s(Rez.Strings.Recalculate), "");
+        row(dc, 1, s(Rez.Strings.Location), "");
+        row(dc, 2, s(Rez.Strings.Atmosphere), "");
+        row(dc, 3, s(Rez.Strings.Details), "");
+    }
+    function detailsRows() {
+        var r = [];
+        r.add([s(Rez.Strings.Latitude), coord(_model.latitude, true)]);
+        r.add([s(Rez.Strings.Longitude), coord(_model.longitude, false)]);
+        r.add([s(Rez.Strings.Elevation), _model.elevation.format("%.0f") + " m MSL"]);
+        r.add([s(Rez.Strings.Source), sourceText()]);
+        r.add([s(Rez.Strings.Quality), _model.quality]);
+        r.add([s(Rez.Strings.SavedAt), _model.savedAt == null ? "—" : _model.savedAt.toString()]);
+        r.add([s(Rez.Strings.UtcTime), _resultTime == null ? "—" : _resultTime.toString()]);
+        r.add(
+            [
+                s(Rez.Strings.SeaPressure),
+                _seaPressure == null ? "—" : _seaPressure.format("%.1f") + " hPa"
+            ]
+        );
+        r.add([s(Rez.Strings.ObserverPressure), _observerPressure.format("%.1f") + " hPa"]);
+        r.add([s(Rez.Strings.DataSource), _pressureSource]);
+        r.add(
+            [
+                s(Rez.Strings.PressureSampleTime),
+                _pressureTime == null ? "—" : _pressureTime.toString()
+            ]
+        );
+        r.add([s(Rez.Strings.Temperature), _model.temperature.format("%.1f") + "°C"]);
+        r.add([s(Rez.Strings.TemperatureSource), s(Rez.Strings.DefaultSource)]);
+        r.add([s(Rez.Strings.Humidity), _model.humidity.format("%.0f") + "%"]);
+        r.add([s(Rez.Strings.HumiditySource), s(Rez.Strings.DefaultSource)]);
+        r.add([s(Rez.Strings.Wavelength), "0.55 um"]);
+        r.add([s(Rez.Strings.WavelengthSource), s(Rez.Strings.VisiblePolaris)]);
+        r.add([s(Rez.Strings.GeoidModel), s(Rez.Strings.GeoidProvenance)]);
+        r.add(
+            [
+                s(Rez.Strings.GeoidOffset),
+                _geoidOffset == null
+                    ? s(Rez.Strings.UnavailableData)
+                    : _geoidOffset.format("%.6f") + " m"
+            ]
+        );
+        r.add(
+            [
+                s(Rez.Strings.EllipsoidHeight),
+                _ellipsoidHeight == null
+                    ? s(Rez.Strings.UnavailableData)
+                    : _ellipsoidHeight.format("%.6f") + " m"
+            ]
+        );
+        r.add([s(Rez.Strings.EarthSource), s(Rez.Strings.EarthDataProvenance)]);
+        var mjd = _resultTime == null ? null : 40587.0 + _resultTime / 86400.0;
+        r.add([s(Rez.Strings.SelectedMjd), mjd == null ? "—" : mjd.format("%.8f")]);
+        r.add([s(Rez.Strings.EarthValidity), s(Rez.Strings.EarthValidityValue)]);
+        r.add([s(Rez.Strings.EarthExpiry), s(Rez.Strings.EarthExpiryValue)]);
+        r.add(["DUT1", _eop == null ? "—" : _eop[:dut1].format("%.9f") + " s"]);
+        var arcsecFactor = 180.0 * 3600.0 / Math.PI;
+        r.add(
+            [
+                "xp / yp",
+                _eop == null
+                    ? "—"
+                    : _eop[:xp].format("%.9f") + " / " + _eop[:yp].format("%.9f") + " rad"
+            ]
+        );
+        r.add(
+            [
+                "xp / yp",
+                _eop == null
+                    ? "—"
+                    : (_eop[:xp] * arcsecFactor).format("%.6f") + "″ / "
+                        + (_eop[:yp] * arcsecFactor).format("%.6f")
+                        + "″"
+            ]
+        );
+        r.add([s(Rez.Strings.CatalogSource), s(Rez.Strings.CatalogProvenance)]);
+        r.add([s(Rez.Strings.CatalogEpoch), "J2000.0"]);
+        r.add([s(Rez.Strings.ProperMotion), "RA +44.22 / Dec -11.74 mas/yr"]);
+        r.add([s(Rez.Strings.Parallax), "7.54 mas"]);
+        r.add([s(Rez.Strings.RadialVelocity), "-16.0 km/s"]);
+        if (_result != null) {
+            r.add(
+                [
+                    s(Rez.Strings.HourAnglePrecise),
+                    (_result[:hourAngle] * 180.0 / Math.PI).format("%.9f") + "°"
+                ]
+            );
+            r.add(
+                [
+                    s(Rez.Strings.PoleDistancePrecise),
+                    (_result[:poleDistance] * arcsecFactor).format("%.6f") + "″"
+                ]
+            );
+        }
+        return r;
+    }
+    function detailLines(dc, text, maxWidth) {
+        var lines = [];
+        var pos = 0;
+        var font = Graphics.FONT_XTINY;
+        while (pos < text.length()) {
+            var end = pos + 1;
+            var fit = pos;
+            var safe = -1;
+            while (end <= text.length()) {
+                var part = text.substring(pos, end);
+                if (dc.getTextWidthInPixels(part, font) > maxWidth) {
+                    break;
+                }
+                fit = end;
+                var last = part.substring(part.length() - 1, part.length());
+                if (last == " " || last == "/" || last == "-" || last == ";") {
+                    safe = end;
+                }
+                end += 1;
+            }
+            if (fit <= pos) {
+                fit = pos + 1;
+            } else if (fit < text.length() && safe > pos) {
+                fit = safe;
+            }
+            var lineEnd = fit;
+            while (lineEnd > pos && text.substring(lineEnd - 1, lineEnd) == " ") {
+                lineEnd -= 1;
+            }
+            lines.add(text.substring(pos, lineEnd));
+            pos = fit;
+            while (pos < text.length() && text.substring(pos, pos + 1) == " ") {
+                pos += 1;
+            }
+        }
+        if (lines.size() == 0) {
+            lines.add("");
+        }
+        return lines;
+    }
+    function detailLinePitch(fontHeight) {
+        return fontHeight + 2;
+    }
+    function detailHeight(lineCount, fontHeight) {
+        return 8 + fontHeight + 4 + lineCount * detailLinePitch(fontHeight) + 8;
+    }
+    function drawIoptronTick(dc, angle, innerTheta, outerTheta, k, r70, cx, cy) {
+        var r0 = ioptronTickStartRadius(innerTheta, outerTheta, k, r70);
+        var r1 = ioptronTickEndRadius(innerTheta, outerTheta, k, r70);
+        var sin = Math.sin(angle);
+        var cos = Math.cos(angle);
+        dc.drawLine(
+            (cx + r0 * sin).toNumber(),
+            (cy - r0 * cos).toNumber(),
+            (cx + r1 * sin).toNumber(),
+            (cy - r1 * cos).toNumber()
+        );
+    }
+    function drawDetails(dc) {
+        title(dc, s(Rez.Strings.Details));
+        var r = detailsRows();
+        if (_result != null && _result[:warning] != null) {
+            r.add([s(Rez.Strings.ActiveWarning), s(_result[:warning])]);
+        }
+        var font = Graphics.FONT_XTINY;
+        var fh = dc.getFontHeight(font);
+        var pitch = detailLinePitch(fh);
+        var lines = [];
+        _detailHeights = [];
+        for (var i = 0; i < r.size(); i++) {
+            var wrapped = detailLines(dc, r[i][1], _profile.detailWidth);
+            lines.add(wrapped);
+            _detailHeights.add(detailHeight(wrapped.size(), fh));
+        }
+        _scroll = variableHeightVisibleStart(
+            _detailHeights,
+            _focus,
+            _scroll,
+            _profile.drawableBottom - _profile.drawableTop
+        );
+        _detailTops = [];
+        var y = _profile.drawableTop;
+        for (var j = _scroll; j < r.size() && y < _profile.drawableBottom; j++) {
+            var height = _detailHeights[j];
+            if (y + height > _profile.drawableBottom) {
+                break;
+            }
+            _detailTops.add([j, y, height]);
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_profile.labelX, y + 8, font, r[j][0], Graphics.TEXT_JUSTIFY_LEFT);
+            var valueTop = y + 8 + fh + 4;
+            var valueHeight = lines[j].size() * pitch;
+            if (j == _focus) {
+                dc.setColor(0x330000, Graphics.COLOR_TRANSPARENT);
+                dc.fillRoundedRectangle(
+                    _profile.labelX,
+                    valueTop - 3,
+                    _profile.detailWidth,
+                    valueHeight + 6,
+                    8
+                );
+                dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+                dc.setPenWidth(2);
+                dc.drawRoundedRectangle(
+                    _profile.labelX,
+                    valueTop - 3,
+                    _profile.detailWidth,
+                    valueHeight + 6,
+                    8
+                );
+            }
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            for (var k = 0; k < lines[j].size(); k++) {
+                dc.drawText(
+                    _profile.valueX,
+                    valueTop + k * pitch,
+                    font,
+                    lines[j][k],
+                    Graphics.TEXT_JUSTIFY_RIGHT
+                );
+            }
+            y += height;
+        }
+        footer(dc, s(Rez.Strings.Back));
+    }
+    
+    function drawHelp(dc) {
+        centerFit(
+            dc,
+            _profile.y(50),
+            s(Rez.Strings.Help),
+            Graphics.COLOR_RED,
+            Graphics.FONT_XTINY,
+            Graphics.FONT_XTINY,
+            _profile.contentWidth
+        );
+        var pages = [
+            Rez.Strings.HelpLocation,
+            Rez.Strings.HelpFormats,
+            Rez.Strings.HelpGps,
+            Rez.Strings.HelpAtmosphere,
+            Rez.Strings.HelpHour,
+            Rez.Strings.HelpPole,
+            Rez.Strings.HelpEarth,
+            Rez.Strings.HelpReticle
+        ];
+        var linePitch = dc.getFontHeight(Graphics.FONT_XTINY) + _profile.y(30);
+        drawWrappedWidth(
+            dc,
+            s(pages[_helpPage]),
+            _profile.y(110),
+            _profile.drawableBottom,
+            _profile.detailWidth,
+            linePitch
+        );
+        centerFit(
+            dc,
+            _profile.footerY,
+            s(Rez.Strings.Page) + " " + (_helpPage + 1) + "/" + pages.size(),
+            Graphics.COLOR_LT_GRAY,
+            Graphics.FONT_XTINY,
+            Graphics.FONT_XTINY,
+            _profile.contentWidth
+        );
+    }
+    function drawWrapped(dc, text, y) {
+        drawWrappedWidth(dc, text, y, _profile.y(190), _profile.detailWidth, _profile.rowPitch);
+    }
+    function drawWrappedWidth(dc, text, y, bottom, maxWidth, lineHeight) {
+        var font = Graphics.FONT_XTINY;
+        var pos = 0;
+        while (pos < text.length() && y <= bottom) {
+            var end = pos + 1;
+            var fit = end;
+            var breakAt = -1;
+            while (end <= text.length()) {
+                var part = text.substring(pos, end);
+                if (dc.getTextWidthInPixels(part, font) > maxWidth) {
+                    break;
+                }
+                fit = end;
+                if (part.substring(part.length() - 1, part.length()) == " ") {
+                    breakAt = end;
+                }
+                end += 1;
+            }
+            if (fit <= pos) {
+                fit = pos + 1;
+            } else if (end <= text.length() && breakAt > pos) {
+                fit = breakAt;
+            }
+            var line = text.substring(pos, fit);
+            center(dc, y, font, line, Graphics.COLOR_LT_GRAY);
+            pos = fit;
+            while (pos < text.length() && text.substring(pos, pos + 1) == " ") {
+                pos += 1;
+            }
+            y += lineHeight;
+        }
+    }
+    function drawGpsWarning(dc) {
+        _rowTop = 244;
+        title(dc, s(Rez.Strings.Acknowledge));
+        centerFit(
+            dc,
+            _profile.y(120),
+            _gpsQuality,
+            Graphics.COLOR_RED,
+            Graphics.FONT_SMALL,
+            Graphics.FONT_XTINY,
+            _profile.contentWidth
+        );
+        row(dc, 0, s(Rez.Strings.YesUse), "");
+        row(dc, 1, s(Rez.Strings.Cancel), "");
+    }
+    function drawDiscard(dc) {
+        _rowTop = 244;
+        title(dc, s(Rez.Strings.DiscardTitle));
+        row(dc, 0, s(Rez.Strings.Discard), "");
+        row(dc, 1, s(Rez.Strings.KeepEditing), "");
+    }
+    
+    function maxFocus() {
+        if (_screen == LOCATE) {
+            return 8;
+        }
+        if (_screen == GPS) {
+            return 2;
+        }
+        if (isEditor()) {
+            return _digits.size() + 1;
+        }
+        if (_screen == ATMOS) {
+            return 6;
+        }
+        if (_screen == RETICLE) {
+            return 2;
+        }
+        if (_screen == ACTIONS) {
+            return 3;
+        }
+        if (_screen == GPS_WARNING || _screen == DISCARD) {
+            return 1;
+        }
+        if (_screen == CALC_ERROR) {
+            return 2;
+        }
+        if (_screen == DETAILS) {
+            return detailsRows().size() - 1
+                + ((_result != null && _result[:warning] != null) ? 1 : 0);
+        }
+        return 0;
+    }
+    function navigate(delta) {
+        if (isEditor() && _editing) {
+            changeDigit(delta);
+            WatchUi.requestUpdate();
+            return;
+        }
+        if (_screen == ATMOS && _editing) {
+            changeAtmos(delta);
+            WatchUi.requestUpdate();
+            return;
+        }
+        if (_screen == HELP) {
+            _helpPage += delta;
+            if (_helpPage < 0) {
+                _helpPage = 7;
+            }
+            if (_helpPage > 7) {
+                _helpPage = 0;
+            }
+            WatchUi.requestUpdate();
+            return;
+        }
+        var max = maxFocus();
+        var wrapped = wrapMenuFocus(_focus + delta, max, _scroll);
+        _focus = wrapped[0];
+        _scroll = wrapped[1];
+        if (_screen == DETAILS) {
+            if (_focus == 0) {
+                _scroll = 0;
+            } else if (_focus == max && delta < 0) {
+                _scroll = max;
+            }
+            WatchUi.requestUpdate();
+            return;
+        }
+        if (_screen == LOCATE) {
+            _focus = locateVisibleFocus(_focus, delta, _model.hasLocation());
+        }
+        if (_screen == ATMOS) {
+            _focus = atmosphereVisibleFocus(_focus, delta, _model.pressureMode == 1);
+            ensureAtmosphereFocusVisible();
+        } else {
+            ensureFocusVisible();
+        }
+        WatchUi.requestUpdate();
+    }
+    function open(screen) {
+        _screen = screen;
+        _focus = 0;
+        _scroll = 0;
+        _rowHalfHeight = 0;
+        _magnified = false;
+        if (screen == LOCATE) {
+            _rowHalfHeight = 14;
+            _rowTop = _profile.rowTop(116, _rowHalfHeight);
+        }
+        _editing = false;
+        WatchUi.requestUpdate();
+    }
+    function openAtmosphere(origin) {
+        _atmosphereReturn = origin;
+        open(ATMOS);
+    }
+    function closeAtmosphere() {
+        _model.savePreferences();
+        var target = _atmosphereReturn;
+        open(target);
+        _focus = target == ACTIONS ? 2 : 6;
+        ensureFocusVisible();
+    }
+    function handleMagnificationKey(key) {
+        if (_screen != DISPLAY || _model.reticleType == RETICLE_GENERIC) {
+            return false;
+        }
+        var next = reticleMagnificationEndpoint(_magnified, key);
+        if (next != _magnified) {
+            _magnified = next;
+            WatchUi.requestUpdate();
+        }
+        return true;
+    }
+    function select() {
+        if (_screen == LOCATE) {
+            selectLocate();
+        } else if (_screen == GPS) {
+            selectGps();
+        } else if (isEditor()) {
+            if (_focus == _digits.size() + 1) {
+                commitEditor();
+            } else {
+                if (_editing) {
+                    _editing = false;
+                    _focus += 1;
+                    ensureFocusVisible();
+                } else {
+                    _editing = true;
+                }
+                WatchUi.requestUpdate();
+            }
+        } else if (_screen == ATMOS) {
+            selectAtmos();
+        } else if (_screen == RETICLE) {
+            _model.reticleType = _focus;
+            _model.savePreferences();
+            openLocateFocus(5);
+        } else if (_screen == DISPLAY) {
+            open(ACTIONS);
+        } else if (_screen == ACTIONS) {
+            if (_focus == 0) {
+                beginCalculation(false);
+            } else if (_focus == 1) {
+                open(LOCATE);
+            } else if (_focus == 2) {
+                openAtmosphere(ACTIONS);
+            } else {
+                open(DETAILS);
+            }
+        } else if (_screen == GPS_WARNING) {
+            if (_focus == 0) {
+                acceptGps();
+            } else {
+                open(GPS);
+            }
+        } else if (_screen == DISCARD) {
+            if (_focus == 0) {
+                _model.discardLocationChanges();
+                WatchUi.popView(WatchUi.SLIDE_RIGHT);
+            } else {
+                open(LOCATE);
+            }
+        } else if (_screen == CALC_ERROR) {
+            if (_focus == 0) {
+                beginCalculation(true);
+            } else if (_focus == 1) {
+                open(LOCATE);
+            } else {
+                open(DETAILS);
+            }
+        }
+    }
+    function selectLocate() {
+        if (_focus == 0) {
+            beginEditor(EDIT_LAT);
+        } else if (_focus == 1) {
+            beginEditor(EDIT_LON);
+        } else if (_focus == 2) {
+            beginEditor(EDIT_ELEV);
+        } else if (_focus == 3) {
+            beginGps();
+        } else if (_focus == 4) {
+            _model.formatDms = !_model.formatDms;
+            _model.savePreferences();
+        } else if (_focus == 5) {
+            _reticleOriginal = _model.reticleType;
+            open(RETICLE);
+            _focus = _model.reticleType;
+        } else if (_focus == 6) {
+            openAtmosphere(LOCATE);
+        } else if (_focus == 7) {
+            if (!_model.hasLocation()) {
+                return;
+            }
+            if (!_model.confirmed) {
+                _model.confirm();
+                WatchUi.requestUpdate();
+            } else {
+                beginCalculation(false);
+            }
+        } else {
+            open(HELP);
+        }
+    }
+    function selectAtmos() {
+        if (_focus == 0) {
+            _model.pressureMode = (_model.pressureMode + 1) % 3;
+            _scroll = 0;
+        } else if ((_focus == 1 && _model.pressureMode == 1) || _focus == 2 || _focus == 3) {
+            _editing = !_editing;
+        } else if (_focus == 5) {
+            _model.calculationAlert = !_model.calculationAlert;
+        } else if (_focus == 6) {
+            closeAtmosphere();
+            return;
+        }
+        WatchUi.requestUpdate();
+    }
+    function changeAtmos(delta) {
+        if (_focus == 1) {
+            _model.manualPressure += delta * 0.1;
+            if (_model.manualPressure < 300) {
+                _model.manualPressure = 300;
+            }
+            if (_model.manualPressure > 1100) {
+                _model.manualPressure = 1100;
+            }
+            _model.manualPressureSet = true;
+        } else if (_focus == 2) {
+            _model.temperature += delta;
+            if (_model.temperature < (-80)) {
+                _model.temperature = -80;
+            }
+            if (_model.temperature > 60) {
+                _model.temperature = 60;
+            }
+        } else if (_focus == 3) {
+            _model.humidity += delta;
+            if (_model.humidity < 0) {
+                _model.humidity = 0;
+            }
+            if (_model.humidity > 100) {
+                _model.humidity = 100;
+            }
+        }
+    }
+    function tap(y) {
+        if (_screen == DISPLAY || _screen == HELP) {
+            select();
+            return;
+        }
+        if (_screen == DETAILS) {
+            for (var d = 0; d < _detailTops.size(); d++) {
+                var detail = _detailTops[d];
+                if (y >= detail[1] && y < detail[1] + detail[2]) {
+                    _focus = detail[0];
+                    WatchUi.requestUpdate();
+                    return;
+                }
+            }
+            return;
+        }
+        var i = _scroll + ((y - _rowTop + 4) / _profile.rowPitch).toNumber();
+        if (i < 0) {
+            i = 0;
+        }
+        if (_screen == ATMOS) {
+            var manual = _model.pressureMode == 1;
+            var visibleMax = atmosphereVisibleIndex(6, manual);
+            if (i > visibleMax) {
+                i = visibleMax;
+            }
+            var item = atmosphereItemAt(i, manual);
+            if (item == 4) {
+                _editing = false;
+                WatchUi.requestUpdate();
+                return;
+            }
+            if (item != _focus) {
+                _editing = false;
+            }
+            _focus = item;
+            ensureAtmosphereFocusVisible();
+            select();
+            return;
+        }
+        if (i > maxFocus()) {
+            i = maxFocus();
+        }
+        if (_screen == LOCATE && i == 7 && !_model.hasLocation()) {
+            var disabledCenter = _rowTop + (7 - _scroll) * _profile.rowPitch;
+            i = locateVisibleFocus(i, y < disabledCenter ? -1 : 1, false);
+        }
+        _focus = i;
+        ensureFocusVisible();
+        select();
+    }
+    function openLocateFocus(focus) {
+        open(LOCATE);
+        _focus = focus;
+        ensureFocusVisible();
+    }
+    function touchWakeOnly() {
+        return _screen == DISPLAY;
+    }
+    function back() {
+        if (isEditor()) {
+            open(LOCATE);
+        } else if (_screen == LOCATE) {
+            if (_model.savedLatitude != null && _model.hasUnconfirmedChanges()) {
+                open(DISCARD);
+            } else {
+                WatchUi.popView(WatchUi.SLIDE_RIGHT);
+            }
+        } else if (_screen == GPS) {
+            getApp().stopGps();
+            stopTimers();
+            open(LOCATE);
+        } else if (_screen == CALC) {
+            _cancelRequested = true;
+        } else if (_screen == DISPLAY) {
+            open(LOCATE);
+        } else if (_screen == ACTIONS) {
+            beginCalculation(true);
+        } else if (_screen == DETAILS) {
+            open(_result == null ? CALC_ERROR : ACTIONS);
+        } else if (_screen == RETICLE) {
+            _model.reticleType = _reticleOriginal;
+            openLocateFocus(5);
+        } else if (_screen == GPS_WARNING) {
+            open(GPS);
+        } else if (_screen == DISCARD) {
+            open(LOCATE);
+        } else if (_screen == ATMOS) {
+            closeAtmosphere();
+        } else if (_screen == CALC_ERROR || _screen == HELP) {
+            _model.savePreferences();
+            open(LOCATE);
+        }
+    }
+    
+    function beginGps() {
+        _gpsStarted = Time.now().value();
+        _gpsLat = null;
+        _gpsLon = null;
+        _gpsElev = null;
+        _gpsQuality = "";
+        _gpsWhen = null;
+        _gpsError = null;
+        open(GPS);
+        try {
+            getApp().startGps();
+        } catch (e) {
+            _gpsError = s(Rez.Strings.Permission);
+        }
+        _timer.stop();
+        _timer.start(method(:gpsTick), 1000, true);
+    }
+    function gpsTick() {
+        WatchUi.requestUpdate();
+    }
+    function onPosition(info) {
+        if (_screen != GPS || info == null || info.position == null) {
+            return;
+        }
+        var d = info.position.toDegrees();
+        _gpsLat = d[0];
+        _gpsLon = d[1];
+        _gpsElev = info.altitude == null ? 0.0 : info.altitude;
+        _gpsQualityCode = info.accuracy;
+        _gpsQuality = qualityName(info.accuracy);
+        _gpsWhen = info.when == null ? null : info.when.value();
+        _gpsReceived = Time.now().value();
+        WatchUi.requestUpdate();
+    }
+    function qualityName(q) {
+        if (q == Position.QUALITY_GOOD) {
+            return s(Rez.Strings.GoodGps);
+        }
+        if (q == Position.QUALITY_USABLE) {
+            return s(Rez.Strings.UsableGps);
+        }
+        if (q == Position.QUALITY_POOR) {
+            return s(Rez.Strings.PoorGps);
+        }
+        if (q == Position.QUALITY_LAST_KNOWN) {
+            return s(Rez.Strings.LastKnown);
+        }
+        return s(Rez.Strings.Unavailable);
+    }
+    function selectGps() {
+        if (_focus == 0 && _gpsLat != null) {
+            if (
+                _gpsQualityCode == Position.QUALITY_POOR
+                    || _gpsQualityCode == Position.QUALITY_LAST_KNOWN
+            ) {
+                open(GPS_WARNING);
+            } else {
+                acceptGps();
+            }
+        } else if (_focus == 1) {
+            getApp().stopGps();
+            beginEditor(EDIT_LAT);
+        } else if (_focus == 2) {
+            getApp().stopGps();
+            stopTimers();
+            open(LOCATE);
+        }
+    }
+    function acceptGps() {
+        getApp().stopGps();
+        stopTimers();
+        _model.setLocation(_gpsLat, _gpsLon, _gpsElev, "GPS", _gpsQuality);
+        _model.confirm();
+        open(LOCATE);
+    }
+    
+    function beginCalculation(restarting) {
+        if (!_model.confirmed || !_model.hasLocation()) {
+            showError(s(Rez.Strings.InvalidInputs));
+            return;
+        }
+        if (_astroState != null) {
+            Astrometry.cancel(_astroState);
+        }
+        _astroState = null;
+        _restart = restarting;
+        _magnified = false;
+        _screen = CALC;
+        _calcStage = 0;
+        _progress = 0;
+        _pressureAttempts = 0;
+        _pressureSamples = [];
+        _cancelRequested = false;
+        _result = null;
+        _errorText = null;
+        _eop = null;
+        stopTimers();
+        _timer.start(method(:calculationChunk), 50, false);
+        WatchUi.requestUpdate();
+    }
+    function calculationChunk() {
+        if (_cancelRequested) {
+            if (_astroState != null) {
+                Astrometry.cancel(_astroState);
+                _astroState = null;
+            }
+            _result = null;
+            open(LOCATE);
+            return;
+        }
+        try {
+            if (_calcStage == 0) {
+                if (samplePressure()) {
+                    return;
+                }
+                _progress = 25;
+                _calcStage = 1;
+            } else if (_calcStage == 1) {
+                loadEarthData();
+                _progress = 40;
+                _calcStage = 2;
+            } else if (_calcStage == 2) {
+                _resultTime = Time.now().value();
+                beginAstronomy();
+                _progress = 50;
+                _calcStage = 3;
+            } else if (_calcStage == 3) {
+                if (!stepAstronomy()) {
+                    _timer.start(method(:calculationChunk), 50, false);
+                    WatchUi.requestUpdate();
+                    return;
+                }
+                _progress = 90;
+                _calcStage = 4;
+            } else if (_calcStage == 4) {
+                checkVisibility();
+                _progress = 95;
+                _calcStage = 5;
+            } else {
+                finishCalculation();
+                return;
+            }
+            _timer.start(method(:calculationChunk), 50, false);
+            WatchUi.requestUpdate();
+        } catch (e) {
+            _astroState = null;
+            showError(_errorText == null ? s(Rez.Strings.AstronomyFailed) : _errorText);
+        }
+    }
+    function samplePressure() {
+        if (_model.pressureMode != 0) {
+            finalizePressure();
+            return false;
+        }
+        _pressureAttempts += 1;
+        var info = Sensor.getInfo();
+        if (info != null && info.pressure != null) {
+            _pressureSamples.add(info.pressure / 100.0);
+        }
+        _progress = (_pressureAttempts * 25) / 8;
+        WatchUi.requestUpdate();
+        if (_pressureAttempts < 8) {
+            _timer.start(method(:calculationChunk), 500, false);
+            return true;
+        }
+        finalizePressure();
+        return false;
+    }
+    function finalizePressure() {
+        var now = Time.now().value();
+        if (_model.pressureMode == 2) {
+            _seaPressure = null;
+            _observerPressure = 0.0;
+            _pressureSource = s(Rez.Strings.RefractionOff);
+            return;
+        }
+        if (_model.pressureMode == 1) {
+            _seaPressure = null;
+            _observerPressure = _model.manualPressure;
+            _pressureSource = s(Rez.Strings.Manual);
+            return;
+        }
+        if (_pressureSamples.size() > 0) {
+            var total = 0.0;
+            for (var i = 0; i < _pressureSamples.size(); i++) {
+                total += _pressureSamples[i];
+            }
+            _seaPressure = total / _pressureSamples.size();
+            _cachedSeaPressure = _seaPressure;
+            _cachedPressureTime = now;
+            _pressureSource = s(Rez.Strings.Barometer);
+            _pressureTime = now;
+        } else if (_cachedSeaPressure != null && now - _cachedPressureTime <= 300) {
+            _seaPressure = _cachedSeaPressure;
+            _pressureTime = _cachedPressureTime;
+            _pressureSource = s(Rez.Strings.PressureRecent);
+        } else if (_model.manualPressureSet) {
+            _seaPressure = null;
+            _observerPressure = _model.manualPressure;
+            _pressureSource = s(Rez.Strings.PressureFallback);
+            return;
+        } else {
+            _seaPressure = 1013.25;
+            _pressureSource = s(Rez.Strings.StandardAtmosphere);
+            _pressureTime = now;
+        }
+        var h = _model.elevation;
+        var base = 1.0 - (0.0065 * h) / (_model.temperature + 273.15 + 0.0065 * h);
+        _observerPressure = _seaPressure * Math.pow(base, 5.257);
+    }
+    function loadEarthData() {
+        var now = Time.now().value();
+        var mjd = Astrometry.unixSecondsToJulianDate(now) - 2400000.5d;
+        _eop = IersEopData.eop(mjd);
+        if (_eop[:status] != 0) {
+            _errorText = s(Rez.Strings.EarthUnsupported);
+            throw new Lang.Exception();
+        }
+        _geoidOffset = GeoidData.geoidOffset(_model.latitude, _model.longitude);
+        _ellipsoidHeight = GeoidData.mslToEllipsoid(
+            _model.latitude,
+            _model.longitude,
+            _model.elevation
+        );
+    }
+    function beginAstronomy() {
+        var jd = Astrometry.unixSecondsToJulianDate(_resultTime);
+        var pi = Math.PI.toDouble();
+        var rc = (2.0d + 31.0d / 60.0d + 49.09d / 3600.0d) * 15.0d * pi / 180.0d;
+        var dc = (89.0d + 15.0d / 60.0d + 50.8d / 3600.0d) * pi / 180.0d;
+        var pmRaStarMasYr = 44.22d;
+        var prRadYr = Astrometry.properMotionPrRadYr(pmRaStarMasYr, dc);
+        _astroState = Astrometry.begin(
+            rc,
+            dc,
+            prRadYr,
+            -11.74e-3d * pi / (180.0d * 3600.0d),
+            7.54e-3d,
+            -16.0d,
+            jd,
+            0.0d,
+            _eop[:dut1],
+            _model.longitude.toDouble() * pi / 180.0d,
+            _model.latitude.toDouble() * pi / 180.0d,
+            _ellipsoidHeight.toDouble(),
+            _eop[:xp],
+            _eop[:yp],
+            _observerPressure.toDouble(),
+            _model.temperature.toDouble(),
+            _model.humidity.toDouble() / 100.0d,
+            0.55d
+        );
+    }
+    // :anchor caches the expensive astrometry context needed by
+    // Astrometry.reticleAt(). Each display tick reevaluates Earth rotation,
+    // local ray geometry, refraction, and reticle projection at one captured
+    // timestamp; marker and readouts then consume that shared snapshot. The
+    // full-recomputation propagation test bounds context-aging error over the
+    // supported anchor interval.
+    function stepAstronomy() {
+        var reply = Astrometry.step(_astroState);
+        _astroState = reply[:state];
+        _progress = 50 + (reply[:progress] * 40).toNumber();
+        if (!reply[:done]) {
+            return false;
+        }
+        var a = reply[:result];
+        _astroState = null;
+        if (a == null || a[:status] != 0) {
+            _errorText = s(Rez.Strings.AstronomyFailed);
+            throw new Lang.Exception();
+        }
+        _result = {
+            :hourAngle => a[:reticleHourAngle],
+            :poleDistance => a[:reticlePoleDistance],
+            :anchor => a[:reticleAnchor],
+            :altitude => (Math.PI.toDouble() / 2.0d - a[:zob]),
+            :warning => (_eop[:warning] ? Rez.Strings.EarthExpires : null)
+        };
+        return true;
+    }
+    // Shared per-tick reticle solution: every display/readout consumer
+    // (drawDisplay, drawReticleDisplay, updateIoptronReadouts) calls this same
+    // function with the same elapsed-seconds value so they always agree on a
+    // single timestamped result, instead of each independently extrapolating
+    // hour angle and pole distance with their own formulas.
+    function reticleNow(elapsed) {
+        return Astrometry.reticleAt(_result[:anchor], elapsed);
+    }
+    function checkVisibility() {
+        if (_result[:altitude] <= 0) {
+            _errorText = s(Rez.Strings.NotVisible);
+            throw new Lang.Exception();
+        }
+        if (_model.reticleType != RETICLE_GENERIC) {
+            var poleArcmin = _result[:poleDistance] * 180.0 / Math.PI * 60.0;
+            if (
+                !ioptronFinite(_result[:hourAngle]) || !ioptronFinite(_resultTime)
+                    || !reticleValidPoleDistance(_model.reticleType, poleArcmin)
+            ) {
+                _errorText = s(Rez.Strings.ReticleRangeError);
+                throw new Lang.Exception();
+            }
+        }
+        if (_result[:altitude] < 5.0 * Math.PI / 180.0) {
+            _result[:warning] = Rez.Strings.WarningLow;
+        }
+    }
+    function showError(text) {
+        stopTimers();
+        _errorText = text;
+        _screen = CALC_ERROR;
+        _focus = 0;
+        _scroll = 0;
+        if (_model.calculationAlert) {
+            Attention.vibrate(
+                [
+                    new Attention.VibeProfile(40, 1),
+                    new Attention.VibeProfile(40, 0),
+                    new Attention.VibeProfile(40, 1)
+                ]
+            );
+        }
+        WatchUi.requestUpdate();
+    }
+    function finishCalculation() {
+        _progress = 100;
+        _model.calculationSucceeded();
+        _displayBase = _resultTime;
+        _lastTick = Time.now().value();
+        _lastAnchor = _lastTick;
+        _restart = false;
+        _reticleClockMinute = -1;
+        _reticleOffset = formatPd(_result[:poleDistance]);
+        var initialElapsed = _lastTick - _displayBase;
+        if (_model.reticleType != RETICLE_GENERIC) {
+            updateIoptronReadouts(initialElapsed);
+        } else {
+            _lastReticle = reticleNow(initialElapsed);
+        }
+        open(DISPLAY);
+        _timer.start(method(:displayTick), 1000, true);
+        if (_model.calculationAlert) {
+            Attention.vibrate([new Attention.VibeProfile(50, 1)]);
+        }
+    }
+    function displayTick() {
+        if (_screen != DISPLAY) {
+            stopTimers();
+            return;
+        }
+        var now = Time.now().value();
+        var delta = now - _lastTick;
+        if (delta < 0 || delta > 3) {
+            beginCalculation(true);
+            return;
+        }
+        _lastTick = now;
+        if (now - _lastAnchor >= 900) {
+            beginCalculation(false);
+            return;
+        }
+        var elapsed = now - _displayBase;
+        if (_model.reticleType != RETICLE_GENERIC) {
+            updateIoptronReadouts(elapsed);
+        } else {
+            _lastReticle = reticleNow(elapsed);
+        }
+        WatchUi.requestUpdate();
+    }
 }
 
 // BehaviorDelegate maps both physical keys and touch gestures to the same
 // behaviors. Declining those ambiguous callbacks makes the framework deliver
 // the original event to onKey/onTap/onSwipe, where its source is unambiguous.
 class PolarFinderDelegate extends WatchUi.BehaviorDelegate {
-  private var _view; function initialize(view){BehaviorDelegate.initialize();_view=view;}
-  function onSelect(){return false;}
-  function onBack(){return false;}
-  function onNextPage(){return false;}
-  function onPreviousPage(){return false;}
-  function onKey(evt){return handleKey(evt.getKey());}
-  function handleKey(key){if(key==WatchUi.KEY_UP||key==WatchUi.KEY_DOWN){if(_view.handleMagnificationKey(key)){return true;}if(key==WatchUi.KEY_DOWN){_view.navigate(1);}else{_view.navigate(-1);}}else if(key==WatchUi.KEY_ENTER||key==WatchUi.KEY_START){_view.select();}else if(key==WatchUi.KEY_ESC){_view.back();}else{return false;}return true;}
-  function onSwipe(evt){if(consumeTouch()){return true;}return handleSwipe(evt.getDirection());}
-  function handleSwipe(direction){if(direction==WatchUi.SWIPE_UP){_view.navigate(1);}else if(direction==WatchUi.SWIPE_DOWN){_view.navigate(-1);}else if(direction==WatchUi.SWIPE_RIGHT){_view.back();}return true;}
-  function onTap(evt){if(consumeTouch()){return true;}return handleTap(evt.getCoordinates()[1]);}
-  function handleTap(y){_view.tap(y);return true;}
-  function consumeTouch(){return _view.touchWakeOnly();}
-  function onHold(evt){return consumeTouch();}
-  function onRelease(evt){return consumeTouch();}
-  function onDrag(evt){return consumeTouch();}
-  function onFlick(evt){return consumeTouch();}
-  function onSelectable(evt){return consumeTouch();}
+    private var _view;
+    function initialize(view) {
+        BehaviorDelegate.initialize();
+        _view = view;
+    }
+    function onSelect() {
+        return false;
+    }
+    function onBack() {
+        return false;
+    }
+    function onNextPage() {
+        return false;
+    }
+    function onPreviousPage() {
+        return false;
+    }
+    function onKey(evt) {
+        return handleKey(evt.getKey());
+    }
+    function handleKey(key) {
+        if (key == WatchUi.KEY_UP || key == WatchUi.KEY_DOWN) {
+            if (_view.handleMagnificationKey(key)) {
+                return true;
+            }
+            if (key == WatchUi.KEY_DOWN) {
+                _view.navigate(1);
+            } else {
+                _view.navigate(-1);
+            }
+        } else if (key == WatchUi.KEY_ENTER || key == WatchUi.KEY_START) {
+            _view.select();
+        } else if (key == WatchUi.KEY_ESC) {
+            _view.back();
+        } else {
+            return false;
+        }
+        return true;
+    }
+    function onSwipe(evt) {
+        if (consumeTouch()) {
+            return true;
+        }
+        return handleSwipe(evt.getDirection());
+    }
+    function handleSwipe(direction) {
+        if (direction == WatchUi.SWIPE_UP) {
+            _view.navigate(1);
+        } else if (direction == WatchUi.SWIPE_DOWN) {
+            _view.navigate(-1);
+        } else if (direction == WatchUi.SWIPE_RIGHT) {
+            _view.back();
+        }
+        return true;
+    }
+    function onTap(evt) {
+        if (consumeTouch()) {
+            return true;
+        }
+        return handleTap(evt.getCoordinates()[1]);
+    }
+    function handleTap(y) {
+        _view.tap(y);
+        return true;
+    }
+    function consumeTouch() {
+        return _view.touchWakeOnly();
+    }
+    function onHold(evt) {
+        return consumeTouch();
+    }
+    function onRelease(evt) {
+        return consumeTouch();
+    }
+    function onDrag(evt) {
+        return consumeTouch();
+    }
+    function onFlick(evt) {
+        return consumeTouch();
+    }
+    function onSelectable(evt) {
+        return consumeTouch();
+    }
 }
