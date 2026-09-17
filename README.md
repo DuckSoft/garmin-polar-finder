@@ -2,28 +2,10 @@
 
 # Polar Finder
 
-## User manual
-
-**Using the app? Start with the [Polar Finder User Manual](docs/user-manual.md)**
-for setup, controls, location entry, reticle guidance, atmospheric settings, and
-troubleshooting.
-
 A Garmin Connect IQ watch app for polar alignment on the Forerunner 255 family
 (`fr255`, `fr255s`, `fr255m`, and `fr255sm`) and Forerunner 965 (`fr965`).
-It acquires or edits an observing location, reviews atmospheric inputs,
-calculates observer-corrected Polaris alignment values, and presents a live
-dark-site display. The persisted Reticle selector offers the Generic numerical
-result, the full iOptron graphic, or the enlarged inner-only Sifo graphic. Both
-graphics retain live Polaris placement, clock/offset readouts, and warnings.
 
-On iOptron and Sifo Displays, physical **UP** immediately enters a transient
-6× view centered on the live green Polaris marker; physical **DOWN** restores
-the normal view. The magnified reticle artwork is clipped to the physical
-display edge, all text is hidden, and a full-screen green crosshair marks the
-physical center for precise alignment. The state resets on Display entry,
-recalculation, an invalid marker, or return from Actions. Generic and touch
-wake-only behavior are unchanged;
-SELECT/BACK retain their existing actions.
+**[Read the Polar Finder User Manual](docs/user-manual.md)**
 
 ## Requirements
 
