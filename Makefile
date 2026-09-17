@@ -6,6 +6,7 @@ MONKEYDO := $(SDK_HOME)/bin/monkeydo
 CONNECTIQ := $(SDK_HOME)/bin/connectiq
 DEVELOPER_KEY ?= $(HOME)/Library/Application Support/Garmin/ConnectIQ/developer_key.der
 UV ?= uv
+MONKEYC_FMT ?= monkeyc-fmt
 DEVICE ?= fr965
 DEVICES := fr255 fr255s fr255m fr255sm fr965
 TEST_DEVICES := fr255s fr255 fr965
@@ -19,7 +20,7 @@ TEST_JUNGLES := monkey.jungle:test.jungle
 ICON_260 := resources-round-260x260/drawables/launcher_icon.png
 ICONS := $(ICON_454) $(ICON_218) $(ICON_260)
 
-.PHONY: build build-all package simulator run lint test test-profiles clean icons generate-iers check-generated update-iers $(DEVICES:%=build-%) $(TEST_DEVICES:%=test-%)
+.PHONY: build build-all package simulator run format lint test test-profiles clean icons generate-iers check-generated update-iers $(DEVICES:%=build-%) $(TEST_DEVICES:%=test-%)
 
 icons: $(ICONS)
 
@@ -37,7 +38,7 @@ package: $(ICONS)
 	mkdir -p bin
 	"$(MONKEYC)" -e -f monkey.jungle -o "$(PACKAGE_OUTPUT)" -y "$(DEVELOPER_KEY)"
 
-test: $(ICONS)
+test: format $(ICONS)
 	mkdir -p bin
 	"$(MONKEYC)" -t -d "$(DEVICE)" -f "$(TEST_JUNGLES)" -o "$(TEST_OUTPUT)" -y "$(DEVELOPER_KEY)"
 	@tmp="$$(mktemp "$${TMPDIR:-/tmp}/polarfinder-test.XXXXXX")"; \
@@ -76,17 +77,21 @@ simulator:
 run: build
 	"$(MONKEYDO)" "$(OUTPUT)" "$(DEVICE)"
 
+format:
+	git ls-files -z --cached --others --exclude-standard -- '*.mc' | xargs -0 "$(MONKEYC_FMT)" --write
+
 lint:
+	git ls-files -z --cached --others --exclude-standard -- '*.mc' | xargs -0 "$(MONKEYC_FMT)" --check
 	npx --yes --package=prettier@3.6.2 --package=@prettier/plugin-xml@3.4.2 sh -c 'prettier --plugin="$$(dirname "$$(dirname "$$(command -v prettier)")")/@prettier/plugin-xml/src/plugin.js" --tab-width=2 --use-tabs=false --xml-whitespace-sensitivity=ignore --check "**/*.xml"'
 
 generate-iers:
-	$(UV) run --script tools/iers.py generate
+	MONKEYC_FMT="$(MONKEYC_FMT)" $(UV) run --script tools/iers.py generate
 
 check-generated:
-	$(UV) run --script tools/iers.py check
+	MONKEYC_FMT="$(MONKEYC_FMT)" $(UV) run --script tools/iers.py check
 
 update-iers:
-	$(UV) run --script tools/iers.py update
+	MONKEYC_FMT="$(MONKEYC_FMT)" $(UV) run --script tools/iers.py update
 
 
 clean:

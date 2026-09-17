@@ -45,17 +45,29 @@ silently shorten app coverage.
 
 ## Reproduce and check generation
 
-Install [uv](https://docs.astral.sh/uv/). `tools/iers.py` uses PEP 723 inline
-metadata, requires Python 3.11 or later, and declares no third-party Python
-dependencies. Run these commands from the repository root:
+Install [uv](https://docs.astral.sh/uv/) and `monkeyc-fmt` **0.1.1**:
+
+```sh
+cargo install --locked --version 0.1.1 monkeyc-fmt
+```
+
+`tools/iers.py` uses PEP 723 inline metadata, requires Python 3.11 or later, and
+declares no third-party Python dependencies. Run these commands from the
+repository root:
+
+```sh
+make generate-iers
+make check-generated
+```
+
+The Make targets pass `MONKEYC_FMT` to the generator. `UV` and `MONKEYC_FMT`
+can be overridden when different executables are needed. Direct generator
+invocation uses `monkeyc-fmt` from `PATH`:
 
 ```sh
 uv run --script tools/iers.py generate
 uv run --script tools/iers.py check
 ```
-
-The Make equivalents are `make generate-iers` and `make check-generated`.
-`UV` can be overridden when a different uv executable is needed.
 
 `generate` reads only the checked-in snapshot and replaces the generated
 module. `check` renders the expected output in memory and compares its bytes
@@ -75,9 +87,9 @@ checked-in Monkey C module and have no regeneration or refresh dependency.
 Only the updater fetches IERS data:
 
 ```sh
-uv run --script tools/iers.py update
-# Equivalent:
 make update-iers
+
+uv run --script tools/iers.py update
 ```
 
 The updater downloads
@@ -120,7 +132,9 @@ interrupt installation deliberately.
 
 1. Start with a checkout whose existing Earth-data changes you understand.
    Configure the caller's network/proxy environment and ensure curl is installed.
-2. Run `uv run --script tools/iers.py update` or `make update-iers` explicitly.
+2. Run `make update-iers` explicitly, or invoke
+   `uv run --script tools/iers.py update` with `monkeyc-fmt` available on
+   `PATH`.
 3. Review the new snapshot's date, 368-day coverage, provenance, and EOP changes,
    together with the generated module. A successful update leaves exactly one
    dated snapshot. Do not hand-edit the generated module to fix a failed check.

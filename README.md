@@ -12,6 +12,8 @@ A Garmin Connect IQ watch app for polar alignment on the Forerunner 255 family
 - Garmin Connect IQ SDK managed by Garmin SDK Manager
 - A signing key at `~/Library/Application Support/Garmin/ConnectIQ/developer_key.der`
 - GNU Make
+- A stable Rust toolchain with `monkeyc-fmt` **0.1.1** installed:
+  `cargo install --locked --version 0.1.1 monkeyc-fmt`
 - ImageMagick (`magick`) when regenerating the launcher icon
 - [uv](https://docs.astral.sh/uv/) when checking, regenerating, or updating IERS data
 
@@ -20,7 +22,8 @@ The Makefile reads the active SDK from `~/Library/Application Support/Garmin/Con
 ## Commands
 
 ```sh
-make lint                       # check project XML formatting
+make format                     # format all nonignored Monkey C source files
+make lint                       # check Monkey C and project XML formatting
 make check-generated            # verify checked-in IERS output without refreshing data
 make generate-iers              # regenerate IERS source from the checked-in snapshot
 make update-iers                # explicitly download and replace the IERS snapshot
@@ -42,10 +45,14 @@ isolated per device so parallel builds do not share generated state.
 Test PRGs remain at `bin/PolarFinder-tests-<device>.prg`.
 `make test-profiles` serializes all three profiles even when invoked with `-j`,
 because MonkeyDo clients share one simulator.
-`make lint` needs no install step; `npx` runs the exactly pinned Prettier and
-XML plugin versions. Launcher PNGs are regenerated from
-`artwork/launcher-icon.svg` when it changes: 65×65 for the 965 and dithered
-40×40 family-qualified resources for the 64-color Forerunner 255 displays.
+`make format` writes every tracked or untracked, nonignored `.mc` file.
+`make lint` checks those files and the project XML without rewriting either.
+Monkey C formatting uses the exactly pinned `monkeyc-fmt` **0.1.1** available
+on `PATH`. Tests run `make format` before compilation.
+`npx` runs the exactly pinned Prettier and XML plugin versions. Launcher PNGs
+are regenerated from `artwork/launcher-icon.svg` when it changes: 65×65 for the
+965 and dithered 40×40 family-qualified resources for the 64-color Forerunner
+255 displays.
 
 ## Bundled Earth data
 

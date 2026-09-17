@@ -17,7 +17,7 @@ class DisplayProfile {
     var reticleRadius;
     var reticleSafeRadius;
     var markerRadius;
-
+    
     function initialize(screenWidth, screenHeight, tinyFontHeight) {
         width = screenWidth;
         height = screenHeight;
@@ -36,14 +36,15 @@ class DisplayProfile {
         contentWidth = rowRight - rowLeft;
         detailWidth = contentWidth - (compact ? 14 : 44);
         reticleRadius = (screenWidth < screenHeight ? screenWidth : screenHeight) * 170.0 / 454.0;
-        reticleSafeRadius = (screenWidth < screenHeight ? screenWidth : screenHeight) / 2.0 - (compact ? 3.0 : 5.0);
+        reticleSafeRadius = (screenWidth < screenHeight ? screenWidth : screenHeight) / 2.0
+            - (compact ? 3.0 : 5.0);
         markerRadius = compact ? 4 : 6;
     }
-
+    
     function y(referenceY) {
         return (referenceY * height) / 454;
     }
-
+    
     function rowTop(referenceY, rowHalfHeight) {
         var top = y(referenceY);
         var minimum = drawableTop + rowHalfHeight;

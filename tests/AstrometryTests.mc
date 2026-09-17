@@ -7,7 +7,9 @@ import Toybox.WatchUi;
  * through the resumable begin/step API without a same-implementation oracle. */
 function withinTolerance(actual, expected, tolerance) {
     var error = actual - expected;
-    if (error < 0.0) { error = -error; }
+    if (error < 0.0) {
+        error = -error;
+    }
     return error <= tolerance;
 }
 (:test)
@@ -26,11 +28,25 @@ function beijingPressureOffVectorMatchesPyerfa(logger as Test.Logger) {
     var dc = (89.0d + 15.0d / 60.0d + 50.8d / 3600.0d) * pi / 180.0d;
     var height = GeoidData.mslToEllipsoid(40.06890d, 116.30780d, 125.0d);
     var state = Astrometry.begin(
-        rc, dc, 44.22e-3d * pi / (180.0d * 3600.0d),
-        -11.74e-3d * pi / (180.0d * 3600.0d), 7.54e-3d, -16.0d,
-        jd, 0.0d, eop[:dut1], 116.30780d * pi / 180.0d,
-        40.06890d * pi / 180.0d, height, eop[:xp], eop[:yp],
-        0.0d, 10.0d, 0.5d, 0.55d);
+        rc,
+        dc,
+        44.22e-3d * pi / (180.0d * 3600.0d),
+        -11.74e-3d * pi / (180.0d * 3600.0d),
+        7.54e-3d,
+        -16.0d,
+        jd,
+        0.0d,
+        eop[:dut1],
+        116.30780d * pi / 180.0d,
+        40.06890d * pi / 180.0d,
+        height,
+        eop[:xp],
+        eop[:yp],
+        0.0d,
+        10.0d,
+        0.5d,
+        0.55d
+    );
     var reply = null;
     var done = false;
     var steps = 0;
@@ -40,7 +56,9 @@ function beijingPressureOffVectorMatchesPyerfa(logger as Test.Logger) {
         done = reply[:done];
         steps += 1;
     }
-    if (!done || reply[:result] == null) { return false; }
+    if (!done || reply[:result] == null) {
+        return false;
+    }
     var result = reply[:result];
     var hourAngleHours = Astrometry.anp(result[:hob]) * 12.0d / pi;
     var observedRaHours = result[:rob] * 12.0d / pi;
@@ -51,14 +69,28 @@ function beijingPressureOffVectorMatchesPyerfa(logger as Test.Logger) {
         && withinTolerance(poleDistanceArcmin, 37.6776406015d, 0.02d);
 }
 
-
 (:test)
 function astrometryResumableReferenceVector(logger as Test.Logger) {
-    var state = Astrometry.begin(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
-        2456384.5, 0.969254051, 0.1550675,
-        -0.527800806, -1.2345856, 2738.0,
-        2.47230737e-7, 1.82640464e-6,
-        731.0, 12.8, 0.59, 0.55);
+    var state = Astrometry.begin(
+        2.71,
+        0.174,
+        1e-5,
+        5e-6,
+        0.1,
+        55.0,
+        2456384.5,
+        0.969254051,
+        0.1550675,
+        -0.527800806,
+        -1.2345856,
+        2738.0,
+        2.47230737e-7,
+        1.82640464e-6,
+        731.0,
+        12.8,
+        0.59,
+        0.55
+    );
     var lastProgress = -1.0;
     var reply = null;
     var result = null;
@@ -68,7 +100,9 @@ function astrometryResumableReferenceVector(logger as Test.Logger) {
     while (!done && steps < 500) {
         reply = Astrometry.step(state);
         state = reply[:state];
-        if (reply[:progress] < lastProgress || reply[:progress] > 1.0) { ok = false; }
+        if (reply[:progress] < lastProgress || reply[:progress] > 1.0) {
+            ok = false;
+        }
         lastProgress = reply[:progress];
         done = reply[:done];
         result = reply[:result];
@@ -76,27 +110,87 @@ function astrometryResumableReferenceVector(logger as Test.Logger) {
     }
     ok = ok && done && steps > 10 && result[:status] == 0;
     var names = [:aob, :zob, :hob, :dob, :rob, :eo];
-    var expected = [0.09251774485358230653, 1.407661405256767021,
-                    -0.09265154431403157925, 0.1716626560075591655,
-                    2.710260453503097719, -0.003020548354802412839];
+    var expected = [
+        0.09251774485358230653,
+        1.407661405256767021,
+        -0.09265154431403157925,
+        0.1716626560075591655,
+        2.710260453503097719,
+        -0.003020548354802412839
+    ];
     var tolerance = [2e-6, 1e-7, 2e-6, 1e-7, 5e-7, 3e-8];
     var i = 0;
     for (i = 0; i < names.size(); i += 1) {
-        if (!withinTolerance(result[names[i]], expected[i], tolerance[i])) { ok = false; }
+        if (!withinTolerance(result[names[i]], expected[i], tolerance[i])) {
+            ok = false;
+        }
     }
-    var cancelled = Astrometry.begin(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
-        2456384.5, 0.969254051, 0.1550675,
-        -0.527800806, -1.2345856, 2738.0,
-        2.47230737e-7, 1.82640464e-6,
-        731.0, 12.8, 0.59, 0.55);
+    var cancelled = Astrometry.begin(
+        2.71,
+        0.174,
+        1e-5,
+        5e-6,
+        0.1,
+        55.0,
+        2456384.5,
+        0.969254051,
+        0.1550675,
+        -0.527800806,
+        -1.2345856,
+        2738.0,
+        2.47230737e-7,
+        1.82640464e-6,
+        731.0,
+        12.8,
+        0.59,
+        0.55
+    );
     Astrometry.cancel(cancelled);
     var cancelledReply = Astrometry.step(cancelled);
     ok = ok && cancelledReply[:done] && cancelledReply[:result] == null;
     return ok;
 }
 
-function runAstrometryFull(rc, dc, pr, pd, px, rv, utc1, utc2, dut1, elong, phi, hm, xp, yp, phpa, tc, rh, wl) {
-    var state = Astrometry.begin(rc, dc, pr, pd, px, rv, utc1, utc2, dut1, elong, phi, hm, xp, yp, phpa, tc, rh, wl);
+function runAstrometryFull(
+    rc,
+    dc,
+    pr,
+    pd,
+    px,
+    rv,
+    utc1,
+    utc2,
+    dut1,
+    elong,
+    phi,
+    hm,
+    xp,
+    yp,
+    phpa,
+    tc,
+    rh,
+    wl
+) {
+    var state = Astrometry.begin(
+        rc,
+        dc,
+        pr,
+        pd,
+        px,
+        rv,
+        utc1,
+        utc2,
+        dut1,
+        elong,
+        phi,
+        hm,
+        xp,
+        yp,
+        phpa,
+        tc,
+        rh,
+        wl
+    );
     var reply = null;
     var done = false;
     var steps = 0;
@@ -106,15 +200,34 @@ function runAstrometryFull(rc, dc, pr, pd, px, rv, utc1, utc2, dut1, elong, phi,
         done = reply[:done];
         steps += 1;
     }
-    if (!done) { return null; }
+    if (!done) {
+        return null;
+    }
     return reply[:result];
 }
 
 (:test)
 function astrometryRejectsOutOfRangeUtc(logger as Test.Logger) {
-    var state = Astrometry.begin(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
-        1000000.0, 0.0, 0.0, -0.5278, -1.2346, 2738.0,
-        0.0, 0.0, 731.0, 12.8, 0.59, 0.55);
+    var state = Astrometry.begin(
+        2.71,
+        0.174,
+        1e-5,
+        5e-6,
+        0.1,
+        55.0,
+        1000000.0,
+        0.0,
+        0.0,
+        -0.5278,
+        -1.2346,
+        2738.0,
+        0.0,
+        0.0,
+        731.0,
+        12.8,
+        0.59,
+        0.55
+    );
     var reply = Astrometry.step(state);
     return reply[:done] && reply[:result][:status] < 0;
 }
@@ -144,8 +257,7 @@ function properMotionConversionDividesOutCosDec(logger as Test.Logger) {
     var independentDec = piD / 3.0d;
     var independentExpected = 4.2876921957327345e-7d;
     var independentActual = Astrometry.properMotionPrRadYr(pmRaStarMasYr, independentDec);
-    return withinTolerance(actual, expected, 1.0e-18d)
-        && !withinTolerance(actual, naive, 1.0e-9d)
+    return withinTolerance(actual, expected, 1.0e-18d) && !withinTolerance(actual, naive, 1.0e-9d)
         && withinTolerance(independentActual, independentExpected, 1.0e-18d);
 }
 
@@ -162,15 +274,32 @@ function zeroRefractionZeroPolarMotionMatchesLegacyHourAngleAndPoleDistance(logg
     var rc = (2.0d + 31.0d / 60.0d + 49.09d / 3600.0d) * 15.0d * pi / 180.0d;
     var dc = (89.0d + 15.0d / 60.0d + 50.8d / 3600.0d) * pi / 180.0d;
     var pr = Astrometry.properMotionPrRadYr(44.22d, dc);
-    var result = runAstrometryFull(rc, dc, pr, -11.74e-3d * pi / (180.0d * 3600.0d),
-        7.54e-3d, -16.0d, 2461293.1391319446d, 0.0d, 0.0d,
-        116.30780d * pi / 180.0d, 40.06890d * pi / 180.0d, 125.0d,
-        0.0d, 0.0d, 0.0d, 10.0d, 0.5d, 0.55d);
-    if (result == null || result[:status] != 0) { return false; }
+    var result = runAstrometryFull(
+        rc,
+        dc,
+        pr,
+        -11.74e-3d * pi / (180.0d * 3600.0d),
+        7.54e-3d,
+        -16.0d,
+        2461293.1391319446d,
+        0.0d,
+        0.0d,
+        116.30780d * pi / 180.0d,
+        40.06890d * pi / 180.0d,
+        125.0d,
+        0.0d,
+        0.0d,
+        0.0d,
+        10.0d,
+        0.5d,
+        0.55d
+    );
+    if (result == null || result[:status] != 0) {
+        return false;
+    }
     return withinTolerance(result[:reticleHourAngle], result[:hob], 1.0e-9d)
         && withinTolerance(result[:reticlePoleDistance], pi / 2.0d - result[:dob], 1.0e-9d);
 }
-
 
 // Item 3: nonzero polar motion (xp,yp) must shift the geometric pole's local
 // direction by (to leading order) sqrt(xp^2+yp^2) radians, independent of
@@ -180,22 +309,64 @@ function zeroRefractionZeroPolarMotionMatchesLegacyHourAngleAndPoleDistance(logg
 function nonzeroPolarMotionShiftsGeometricPole(logger as Test.Logger) {
     var xp = 2.47230737e-7d;
     var yp = 1.82640464e-6d;
-    var withPm = runAstrometryFull(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
-        2456384.5, 0.969254051, 0.1550675, -0.527800806, -1.2345856, 2738.0,
-        xp, yp, 731.0, 12.8, 0.59, 0.55);
-    var withoutPm = runAstrometryFull(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
-        2456384.5, 0.969254051, 0.1550675, -0.527800806, -1.2345856, 2738.0,
-        0.0, 0.0, 731.0, 12.8, 0.59, 0.55);
-    if (withPm == null || withoutPm == null) { return false; }
+    var withPm = runAstrometryFull(
+        2.71,
+        0.174,
+        1e-5,
+        5e-6,
+        0.1,
+        55.0,
+        2456384.5,
+        0.969254051,
+        0.1550675,
+        -0.527800806,
+        -1.2345856,
+        2738.0,
+        xp,
+        yp,
+        731.0,
+        12.8,
+        0.59,
+        0.55
+    );
+    var withoutPm = runAstrometryFull(
+        2.71,
+        0.174,
+        1e-5,
+        5e-6,
+        0.1,
+        55.0,
+        2456384.5,
+        0.969254051,
+        0.1550675,
+        -0.527800806,
+        -1.2345856,
+        2738.0,
+        0.0,
+        0.0,
+        731.0,
+        12.8,
+        0.59,
+        0.55
+    );
+    if (withPm == null || withoutPm == null) {
+        return false;
+    }
     var dx = withPm[:polePx] - withoutPm[:polePx];
     var dy = withPm[:polePy] - withoutPm[:polePy];
     var dz = withPm[:polePz] - withoutPm[:polePz];
     var shift = Math.sqrt(dx * dx + dy * dy + dz * dz);
     var expectedShift = Math.sqrt(xp * xp + yp * yp);
     if (!withinTolerance(shift, expectedShift, 1.0e-9d)) {
-        logger.debug("geometric-pole shift mismatch: shift=" + shift
-            + " expected=" + expectedShift + " errorNrad=" + ((shift - expectedShift) * 1.0e9d)
-            + " xp=" + xp + " yp=" + yp);
+        logger.debug(
+            "geometric-pole shift mismatch: shift=" + shift + " expected=" + expectedShift
+                + " errorNrad="
+                + ((shift - expectedShift) * 1.0e9d)
+                + " xp="
+                + xp
+                + " yp="
+                + yp
+        );
         return false;
     }
     return true;
@@ -206,13 +377,49 @@ function nonzeroPolarMotionShiftsGeometricPole(logger as Test.Logger) {
 // the mechanical mount target and must never see refa/refb.
 (:test)
 function refractionOnlyMovesPolarisRayNotGeometricPole(logger as Test.Logger) {
-    var noRefr = runAstrometryFull(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
-        2456384.5, 0.969254051, 0.1550675, -0.527800806, -1.2345856, 2738.0,
-        2.47230737e-7, 1.82640464e-6, 0.0, 12.8, 0.59, 0.55);
-    var withRefr = runAstrometryFull(2.71, 0.174, 1e-5, 5e-6, 0.1, 55.0,
-        2456384.5, 0.969254051, 0.1550675, -0.527800806, -1.2345856, 2738.0,
-        2.47230737e-7, 1.82640464e-6, 731.0, 12.8, 0.59, 0.55);
-    if (noRefr == null || withRefr == null) { return false; }
+    var noRefr = runAstrometryFull(
+        2.71,
+        0.174,
+        1e-5,
+        5e-6,
+        0.1,
+        55.0,
+        2456384.5,
+        0.969254051,
+        0.1550675,
+        -0.527800806,
+        -1.2345856,
+        2738.0,
+        2.47230737e-7,
+        1.82640464e-6,
+        0.0,
+        12.8,
+        0.59,
+        0.55
+    );
+    var withRefr = runAstrometryFull(
+        2.71,
+        0.174,
+        1e-5,
+        5e-6,
+        0.1,
+        55.0,
+        2456384.5,
+        0.969254051,
+        0.1550675,
+        -0.527800806,
+        -1.2345856,
+        2738.0,
+        2.47230737e-7,
+        1.82640464e-6,
+        731.0,
+        12.8,
+        0.59,
+        0.55
+    );
+    if (noRefr == null || withRefr == null) {
+        return false;
+    }
     var poleUnchanged = withinTolerance(noRefr[:polePx], withRefr[:polePx], 1.0e-12d)
         && withinTolerance(noRefr[:polePy], withRefr[:polePy], 1.0e-12d)
         && withinTolerance(noRefr[:polePz], withRefr[:polePz], 1.0e-12d);
@@ -236,11 +443,13 @@ function angularSeparationArcsec(a, b) {
 // (u,v) it was measured against -- this is the same reconstruction formula
 // used for cross-checking Astrometry.reticleAt()'s output below.
 function localFrameToVector(pole, u, v, x, y) {
-    return Astrometry.normalize3([
-        pole[0] + x * v[0] + y * u[0],
-        pole[1] + x * v[1] + y * u[1],
-        pole[2] + x * v[2] + y * u[2]
-    ]);
+    return Astrometry.normalize3(
+        [
+            pole[0] + x * v[0] + y * u[0],
+            pole[1] + x * v[1] + y * u[1],
+            pole[2] + x * v[2] + y * u[2]
+        ]
+    );
 }
 function reticlePredictedVector(anchor, elapsedSeconds) {
     var r = Astrometry.reticleAt(anchor, elapsedSeconds);
@@ -260,9 +469,18 @@ function independentSiderealRateVector(anchor, elapsedSeconds) {
     var omega = 2.0d * Math.PI.toDouble() * 1.00273781191135448d / 86400.0d;
     var theta0 = Astrometry.era00(anchor[:ut1a], anchor[:ut1b]);
     var eral = theta0 + omega * elapsedSeconds + anchor[:along];
-    var ray = Astrometry.localHorizonRay(anchor[:ri], anchor[:di], eral,
-        anchor[:xpl], anchor[:ypl], anchor[:sphi], anchor[:cphi], 0.0d,
-        anchor[:refa], anchor[:refb]);
+    var ray = Astrometry.localHorizonRay(
+        anchor[:ri],
+        anchor[:di],
+        eral,
+        anchor[:xpl],
+        anchor[:ypl],
+        anchor[:sphi],
+        anchor[:cphi],
+        0.0d,
+        anchor[:refa],
+        anchor[:refb]
+    );
     return Astrometry.normalize3([ray[3], ray[4], ray[5]]);
 }
 // Builds a synthetic anchor directly from CIRS-frame inputs (bypassing the
@@ -270,25 +488,53 @@ function independentSiderealRateVector(anchor, elapsedSeconds) {
 // local-geometry propagation tests. vacuumPoleDistanceRad is the CIRS
 // north-pole distance (e.g. ~37.7 arcmin, close to Polaris'); hourAngle0Rad
 // is the desired hour-angle-like offset (ri-eral) at elapsedSeconds=0.
-function buildSyntheticAnchor(vacuumPoleDistanceRad, phiRad, xp, yp, phpa, tc, rh, wl, hourAngle0Rad) {
+function buildSyntheticAnchor(
+    vacuumPoleDistanceRad,
+    phiRad,
+    xp,
+    yp,
+    phpa,
+    tc,
+    rh,
+    wl,
+    hourAngle0Rad
+) {
     var di = Math.PI.toDouble() / 2.0d - vacuumPoleDistanceRad;
-    var sphi = Math.sin(phiRad); var cphi = Math.cos(phiRad);
+    var sphi = Math.sin(phiRad);
+    var cphi = Math.cos(phiRad);
     var along = 0.0d;
-    var cl = Math.cos(along); var sl = Math.sin(along);
-    var xpl = xp * cl - yp * sl; var ypl = xp * sl + yp * cl;
+    var cl = Math.cos(along);
+    var sl = Math.sin(along);
+    var xpl = xp * cl - yp * sl;
+    var ypl = xp * sl + yp * cl;
     var ref = Astrometry.refco(phpa, tc, rh, wl);
-    var ut1a = 2456384.5d; var ut1b = 0.0d;
+    var ut1a = 2456384.5d;
+    var ut1b = 0.0d;
     var theta0 = Astrometry.era00(ut1a, ut1b);
     var ri = hourAngle0Rad + theta0 + along;
     var pole = Astrometry.geometricPoleLocalVector(xpl, ypl, sphi, cphi);
     var basis = Astrometry.poleTangentBasis(pole);
     return {
-        :ri => ri, :di => di, :ut1a => ut1a, :ut1b => ut1b, :along => along,
-        :xpl => xpl, :ypl => ypl, :sphi => sphi, :cphi => cphi,
-        :refa => ref[0], :refb => ref[1],
-        :polePx => pole[0], :polePy => pole[1], :polePz => pole[2],
-        :uX => basis[0][0], :uY => basis[0][1], :uZ => basis[0][2],
-        :vX => basis[1][0], :vY => basis[1][1], :vZ => basis[1][2]
+        :ri => ri,
+        :di => di,
+        :ut1a => ut1a,
+        :ut1b => ut1b,
+        :along => along,
+        :xpl => xpl,
+        :ypl => ypl,
+        :sphi => sphi,
+        :cphi => cphi,
+        :refa => ref[0],
+        :refb => ref[1],
+        :polePx => pole[0],
+        :polePy => pole[1],
+        :polePz => pole[2],
+        :uX => basis[0][0],
+        :uY => basis[0][1],
+        :uZ => basis[0][2],
+        :vX => basis[1][0],
+        :vY => basis[1][1],
+        :vZ => basis[1][2]
     };
 }
 
@@ -317,14 +563,27 @@ function shortTimePropagationMatchesExactRotationGrid(logger as Test.Logger) {
         var phiRad = latitudesDeg[li] * deg;
         var pmi = 0;
         for (pmi = 0; pmi < polarMotions.size(); pmi += 1) {
-            var xp = polarMotions[pmi][0]; var yp = polarMotions[pmi][1];
+            var xp = polarMotions[pmi][0];
+            var yp = polarMotions[pmi][1];
             var wi = 0;
             for (wi = 0; wi < weatherOptions.size(); wi += 1) {
-                var phpa = weatherOptions[wi][0]; var tc = weatherOptions[wi][1]; var rh = weatherOptions[wi][2];
+                var phpa = weatherOptions[wi][0];
+                var tc = weatherOptions[wi][1];
+                var rh = weatherOptions[wi][2];
                 var hi = 0;
                 for (hi = 0; hi < hourAnglesDeg.size(); hi += 1) {
                     var h0 = hourAnglesDeg[hi] * deg;
-                    var anchor = buildSyntheticAnchor(vacuumPoleDistance, phiRad, xp, yp, phpa, tc, rh, 0.55d, h0);
+                    var anchor = buildSyntheticAnchor(
+                        vacuumPoleDistance,
+                        phiRad,
+                        xp,
+                        yp,
+                        phpa,
+                        tc,
+                        rh,
+                        0.55d,
+                        h0
+                    );
                     var ti = 0;
                     for (ti = 0; ti < times.size(); ti += 1) {
                         var t = times[ti];
@@ -338,20 +597,54 @@ function shortTimePropagationMatchesExactRotationGrid(logger as Test.Logger) {
                         // leave "worst" looking fine. Every case must itself
                         // be a finite, non-negative value under budget.
                         if (!(errArcsec >= 0.0d && errArcsec < budgetArcsec)) {
-                            logger.debug("propagation grid case failed: case="
-                                + li + "/" + pmi + "/" + wi + "/" + hi + "/" + ti
-                                + " lat=" + latitudesDeg[li] + " xp=" + xp + " yp=" + yp
-                                + " phpa=" + phpa + " tc=" + tc + " rh=" + rh + " wl=0.55"
-                                + " h0deg=" + hourAnglesDeg[hi] + " t=" + t
-                                + " errArcsec=" + errArcsec);
+                            logger.debug(
+                                "propagation grid case failed: case=" + li + "/" + pmi + "/" + wi
+                                    + "/"
+                                    + hi
+                                    + "/"
+                                    + ti
+                                    + " lat="
+                                    + latitudesDeg[li]
+                                    + " xp="
+                                    + xp
+                                    + " yp="
+                                    + yp
+                                    + " phpa="
+                                    + phpa
+                                    + " tc="
+                                    + tc
+                                    + " rh="
+                                    + rh
+                                    + " wl=0.55"
+                                    + " h0deg="
+                                    + hourAnglesDeg[hi]
+                                    + " t="
+                                    + t
+                                    + " errArcsec="
+                                    + errArcsec
+                            );
                             return false;
                         }
                         if (worstFixture == "" || errArcsec > worst) {
                             worst = errArcsec;
                             worstFixture = "case=" + li + "/" + pmi + "/" + wi + "/" + hi + "/" + ti
-                                + " lat=" + latitudesDeg[li] + " xp=" + xp + " yp=" + yp
-                                + " phpa=" + phpa + " tc=" + tc + " rh=" + rh + " wl=0.55"
-                                + " h0deg=" + hourAnglesDeg[hi] + " t=" + t;
+                                + " lat="
+                                + latitudesDeg[li]
+                                + " xp="
+                                + xp
+                                + " yp="
+                                + yp
+                                + " phpa="
+                                + phpa
+                                + " tc="
+                                + tc
+                                + " rh="
+                                + rh
+                                + " wl=0.55"
+                                + " h0deg="
+                                + hourAnglesDeg[hi]
+                                + " t="
+                                + t;
                         }
                     }
                 }
@@ -377,13 +670,43 @@ function endToEndPolarisPropagationMatchesFullRecompute(logger as Test.Logger) {
     var dc = (89.0d + 15.0d / 60.0d + 50.8d / 3600.0d) * pi / 180.0d;
     var pr = Astrometry.properMotionPrRadYr(44.22d, dc);
     var pd = -11.74e-3d * pi / (180.0d * 3600.0d);
-    var px = 7.54e-3d; var rv = -16.0d;
-    var utc1 = 2461293.1391319446d; var utc2 = 0.0d; var dut1 = 0.0d;
-    var elong = 116.30780d * pi / 180.0d; var phi = 40.06890d * pi / 180.0d; var hm = 125.0d;
-    var xp = 2.47230737e-7d; var yp = 1.82640464e-6d;
-    var phpa = 731.0d; var tc = 10.0d; var rh = 0.5d; var wl = 0.55d;
-    var anchorResult = runAstrometryFull(rc, dc, pr, pd, px, rv, utc1, utc2, dut1, elong, phi, hm, xp, yp, phpa, tc, rh, wl);
-    if (anchorResult == null || anchorResult[:status] != 0) { return false; }
+    var px = 7.54e-3d;
+    var rv = -16.0d;
+    var utc1 = 2461293.1391319446d;
+    var utc2 = 0.0d;
+    var dut1 = 0.0d;
+    var elong = 116.30780d * pi / 180.0d;
+    var phi = 40.06890d * pi / 180.0d;
+    var hm = 125.0d;
+    var xp = 2.47230737e-7d;
+    var yp = 1.82640464e-6d;
+    var phpa = 731.0d;
+    var tc = 10.0d;
+    var rh = 0.5d;
+    var wl = 0.55d;
+    var anchorResult = runAstrometryFull(
+        rc,
+        dc,
+        pr,
+        pd,
+        px,
+        rv,
+        utc1,
+        utc2,
+        dut1,
+        elong,
+        phi,
+        hm,
+        xp,
+        yp,
+        phpa,
+        tc,
+        rh,
+        wl
+    );
+    if (anchorResult == null || anchorResult[:status] != 0) {
+        return false;
+    }
     var anchor = anchorResult[:reticleAnchor];
     var anchorPole = [anchorResult[:polePx], anchorResult[:polePy], anchorResult[:polePz]];
     var anchorBasis = Astrometry.poleTangentBasis(anchorPole);
@@ -394,26 +717,71 @@ function endToEndPolarisPropagationMatchesFullRecompute(logger as Test.Logger) {
     for (ti = 0; ti < times.size(); ti += 1) {
         var t = times[ti];
         var predicted = Astrometry.reticleAt(anchor, t);
-        var sPred = localFrameToVector(anchorPole, anchorBasis[0], anchorBasis[1], predicted[:x], predicted[:y]);
-        var laterResult = runAstrometryFull(rc, dc, pr, pd, px, rv, utc1, utc2 + t / 86400.0d, dut1, elong, phi, hm, xp, yp, phpa, tc, rh, wl);
-        if (laterResult == null || laterResult[:status] != 0) { return false; }
+        var sPred = localFrameToVector(
+            anchorPole,
+            anchorBasis[0],
+            anchorBasis[1],
+            predicted[:x],
+            predicted[:y]
+        );
+        var laterResult = runAstrometryFull(
+            rc,
+            dc,
+            pr,
+            pd,
+            px,
+            rv,
+            utc1,
+            utc2 + t / 86400.0d,
+            dut1,
+            elong,
+            phi,
+            hm,
+            xp,
+            yp,
+            phpa,
+            tc,
+            rh,
+            wl
+        );
+        if (laterResult == null || laterResult[:status] != 0) {
+            return false;
+        }
         var laterPole = [laterResult[:polePx], laterResult[:polePy], laterResult[:polePz]];
         var laterBasis = Astrometry.poleTangentBasis(laterPole);
-        var sRef = localFrameToVector(laterPole, laterBasis[0], laterBasis[1], laterResult[:reticleX], laterResult[:reticleY]);
+        var sRef = localFrameToVector(
+            laterPole,
+            laterBasis[0],
+            laterBasis[1],
+            laterResult[:reticleX],
+            laterResult[:reticleY]
+        );
         var errArcsec = angularSeparationArcsec(sPred, sRef);
         // Same per-case validity/budget guard as the grid test above: reject
         // NaN/negative/over-budget cases individually instead of relying on
         // a running maximum that a NaN comparison could silently bypass.
         if (!(errArcsec >= 0.0d && errArcsec < budgetArcsec)) {
-            logger.debug("end-to-end propagation case failed: t=" + t
-                + " xp=" + xp + " yp=" + yp + " phpa=" + phpa + " tc=" + tc
-                + " rh=" + rh + " wl=" + wl + " errArcsec=" + errArcsec);
+            logger.debug(
+                "end-to-end propagation case failed: t=" + t + " xp=" + xp + " yp=" + yp + " phpa="
+                    + phpa
+                    + " tc="
+                    + tc
+                    + " rh="
+                    + rh
+                    + " wl="
+                    + wl
+                    + " errArcsec="
+                    + errArcsec
+            );
             return false;
         }
         if (worstFixture == "" || errArcsec > worst) {
             worst = errArcsec;
-            worstFixture = "t=" + t + " xp=" + xp + " yp=" + yp
-                + " phpa=" + phpa + " tc=" + tc + " rh=" + rh + " wl=" + wl;
+            worstFixture = "t=" + t + " xp=" + xp + " yp=" + yp + " phpa=" + phpa + " tc=" + tc
+                + " rh="
+                + rh
+                + " wl="
+                + wl;
         }
     }
     logger.debug("end-to-end propagation worst case errArcsec=" + worst + " " + worstFixture);
@@ -432,10 +800,8 @@ function iersEopInterpolatesAndChecksBoundsAndWarnings(logger as Test.Logger) {
     var hiXp = a[:xp] > b[:xp] ? a[:xp] : b[:xp];
     ok = ok && m[:xp] > loXp && m[:xp] < hiXp;
     ok = ok && a[:first] == 61292.0 && a[:last] == 61659.0;
-    ok = ok && finalDay[:status] == 0
-        && withinTolerance(finalDay[:dut1], -0.1044597d, 1.0e-8d);
-    ok = ok && !IersEopData.eop(61628.999999d)[:warning]
-        && IersEopData.eop(61629.0d)[:warning];
+    ok = ok && finalDay[:status] == 0 && withinTolerance(finalDay[:dut1], -0.1044597d, 1.0e-8d);
+    ok = ok && !IersEopData.eop(61628.999999d)[:warning] && IersEopData.eop(61629.0d)[:warning];
     ok = ok && IersEopData.eop(61291.999999d)[:status] < 0
         && IersEopData.eop(61659.000001d)[:status] < 0;
     return ok;
@@ -459,26 +825,47 @@ function menuFocusVisibilityTracksDrawableGeometry(logger as Test.Logger) {
     var referenceTops = [68, 82, 104, 116, 244, 250, 276];
     for (var p = 0; p < profiles.size(); p += 1) {
         var profile = profiles[p];
-        if (profile.centerX * 2 != profile.width
-                || profile.reticleRadius >= profile.reticleSafeRadius) {
+        if (
+            profile.centerX * 2 != profile.width
+                || profile.reticleRadius >= profile.reticleSafeRadius
+        ) {
             return false;
         }
         for (var t = 0; t < referenceTops.size(); t += 1) {
             var top = profile.rowTop(referenceTops[t], 14);
             var scroll = 0;
             for (var focus = 0; focus < 31; focus += 1) {
-                scroll = focusVisibleScroll(top, profile.rowPitch, 14,
-                    profile.drawableTop, profile.drawableBottom, focus, scroll);
+                scroll = focusVisibleScroll(
+                    top,
+                    profile.rowPitch,
+                    14,
+                    profile.drawableTop,
+                    profile.drawableBottom,
+                    focus,
+                    scroll
+                );
                 var center = top + (focus - scroll) * profile.rowPitch;
-                if (center - 14 < profile.drawableTop
-                        || center + 14 > profile.drawableBottom) { return false; }
+                if (center - 14 < profile.drawableTop || center + 14 > profile.drawableBottom) {
+                    return false;
+                }
             }
             for (var focusBack = 30; focusBack >= 0; focusBack -= 1) {
-                scroll = focusVisibleScroll(top, profile.rowPitch, 14,
-                    profile.drawableTop, profile.drawableBottom, focusBack, scroll);
+                scroll = focusVisibleScroll(
+                    top,
+                    profile.rowPitch,
+                    14,
+                    profile.drawableTop,
+                    profile.drawableBottom,
+                    focusBack,
+                    scroll
+                );
                 var backCenter = top + (focusBack - scroll) * profile.rowPitch;
-                if (backCenter - 14 < profile.drawableTop
-                        || backCenter + 14 > profile.drawableBottom) { return false; }
+                if (
+                    backCenter - 14 < profile.drawableTop
+                        || backCenter + 14 > profile.drawableBottom
+                ) {
+                    return false;
+                }
             }
         }
     }
@@ -493,19 +880,24 @@ function variableHeightDetailsKeepFocusedBlockVisible(logger as Test.Logger) {
     for (var focus = 0; focus < heights.size(); focus += 1) {
         start = variableHeightVisibleStart(heights, focus, start, available);
         var used = 0;
-        for (var i = start; i <= focus; i += 1) { used += heights[i]; }
-        if (start > focus || used > available) { return false; }
+        for (var i = start; i <= focus; i += 1) {
+            used += heights[i];
+        }
+        if (start > focus || used > available) {
+            return false;
+        }
     }
     for (var focusBack = heights.size() - 1; focusBack >= 0; focusBack -= 1) {
         start = variableHeightVisibleStart(heights, focusBack, start, available);
-        if (start > focusBack) { return false; }
+        if (start > focusBack) {
+            return false;
+        }
     }
     return start == 0;
 }
 (:test)
 function atmosphereRowsReflowAndSkipReadOnlyItems(logger as Test.Logger) {
-    return atmosphereVisibleFocus(1, 1, false) == 2
-        && atmosphereVisibleFocus(1, -1, false) == 0
+    return atmosphereVisibleFocus(1, 1, false) == 2 && atmosphereVisibleFocus(1, -1, false) == 0
         && atmosphereVisibleFocus(1, 1, true) == 1
         && atmosphereVisibleFocus(4, 1, true) == 5
         && atmosphereVisibleFocus(4, -1, true) == 3
@@ -521,16 +913,16 @@ function atmosphereRowsCenterAroundPhysicalDisplay(logger as Test.Logger) {
     var profile = new DisplayProfile(454, 454, 37);
     var automaticTop = centeredMenuRowTop(profile, 6);
     var manualTop = centeredMenuRowTop(profile, 7);
-    return automaticTop == 122
-        && automaticTop + 5 * profile.rowPitch == 332
-        && manualTop == 101
+    return automaticTop == 122 && automaticTop + 5 * profile.rowPitch == 332 && manualTop == 101
         && manualTop + 6 * profile.rowPitch == 353;
 }
 
 (:test)
 function emptyLocateNavigationWrapResetsScrollAndSkipsDisabledConfirm(logger as Test.Logger) {
     var wrappedUp = wrapMenuFocus(-1, 8, 0);
-    if (wrappedUp[0] != 8 || wrappedUp[1] != 0) { return false; }
+    if (wrappedUp[0] != 8 || wrappedUp[1] != 0) {
+        return false;
+    }
     var profiles = [
         new DisplayProfile(218, 218, 19),
         new DisplayProfile(260, 260, 19),
@@ -539,24 +931,31 @@ function emptyLocateNavigationWrapResetsScrollAndSkipsDisabledConfirm(logger as 
     for (var i = 0; i < profiles.size(); i += 1) {
         var profile = profiles[i];
         var top = profile.rowTop(116, 14);
-        var locateScroll = focusVisibleScroll(top, profile.rowPitch, 14,
-            profile.drawableTop, profile.drawableBottom, wrappedUp[0], wrappedUp[1]);
+        var locateScroll = focusVisibleScroll(
+            top,
+            profile.rowPitch,
+            14,
+            profile.drawableTop,
+            profile.drawableBottom,
+            wrappedUp[0],
+            wrappedUp[1]
+        );
         var center = top + (wrappedUp[0] - locateScroll) * profile.rowPitch;
-        if (center - 14 < profile.drawableTop
-                || center + 14 > profile.drawableBottom) { return false; }
+        if (center - 14 < profile.drawableTop || center + 14 > profile.drawableBottom) {
+            return false;
+        }
     }
     var wrappedDown = wrapMenuFocus(wrappedUp[0] + 1, 8, 4);
-    if (wrappedDown[0] != 0 || wrappedDown[1] != 0) { return false; }
-    return locateVisibleFocus(7, 1, false) == 8
-        && locateVisibleFocus(7, -1, false) == 6
+    if (wrappedDown[0] != 0 || wrappedDown[1] != 0) {
+        return false;
+    }
+    return locateVisibleFocus(7, 1, false) == 8 && locateVisibleFocus(7, -1, false) == 6
         && locateVisibleFocus(7, 1, true) == 7;
 }
 
 (:test)
 function reticlePersistenceAndVisualProfilesRemainStable(logger as Test.Logger) {
-    return RETICLE_GENERIC == 0
-        && RETICLE_IOPTRON == 1
-        && RETICLE_SIFO == 2
+    return RETICLE_GENERIC == 0 && RETICLE_IOPTRON == 1 && RETICLE_SIFO == 2
         && normalizeReticleType(RETICLE_GENERIC) == RETICLE_GENERIC
         && normalizeReticleType(RETICLE_IOPTRON) == RETICLE_IOPTRON
         && normalizeReticleType(RETICLE_SIFO) == RETICLE_SIFO
@@ -584,13 +983,20 @@ function ioptronReticleClockMatchesReferenceVector(logger as Test.Logger) {
 (:test)
 function ioptronRingRadiusVector(logger as Test.Logger) {
     var theta = [4.0, 36.0, 40.0, 44.0, 60.0, 65.0, 70.0];
-    var expected = [9.7142857143, 87.4285714286, 97.1428571429,
-                    106.8571428571, 145.7142857143, 157.8571428571,
-                    170.0];
+    var expected = [
+        9.7142857143,
+        87.4285714286,
+        97.1428571429,
+        106.8571428571,
+        145.7142857143,
+        157.8571428571,
+        170.0
+    ];
     var ok = true;
     for (var i = 0; i < theta.size(); i += 1) {
-        if (!withinTolerance(ioptronRingRadius(theta[i], 170.0),
-                             expected[i], 0.0002)) { ok = false; }
+        if (!withinTolerance(ioptronRingRadius(theta[i], 170.0), expected[i], 0.0002)) {
+            ok = false;
+        }
     }
     return ok;
 }
@@ -601,19 +1007,22 @@ function ioptronTickClassesAndFractions(logger as Test.Logger) {
     var ok = true;
     for (var k = 0; k < 36; k += 1) {
         var expectedClass = (k % 6 == 0) ? 0 : ((k % 3 == 0) ? 1 : 2);
-        var expectedFraction = expectedClass == 0 ? 1.0
-            : (expectedClass == 1 ? 0.6 : 0.3);
+        var expectedFraction = expectedClass == 0 ? 1.0 : (expectedClass == 1 ? 0.6 : 0.3);
         var tickClass = ioptronTickClass(k);
-        if (tickClass != expectedClass) { ok = false; }
-        if (tickClass < 0 || tickClass > 2) { return false; }
+        if (tickClass != expectedClass) {
+            ok = false;
+        }
+        if (tickClass < 0 || tickClass > 2) {
+            return false;
+        }
         counts[tickClass] += 1;
-        if (!withinTolerance(ioptronTickSpanFraction(k),
-                             expectedFraction, 0.00001)) { ok = false; }
+        if (!withinTolerance(ioptronTickSpanFraction(k), expectedFraction, 0.00001)) {
+            ok = false;
+        }
     }
-    return ok && counts[0] == 6 && counts[1] == 6 && counts[2] == 24
-        && ioptronTickClass(-3) == 1 && ioptronTickClass(36) == 0;
+    return ok && counts[0] == 6 && counts[1] == 6 && counts[2] == 24 && ioptronTickClass(-3) == 1
+        && ioptronTickClass(36) == 0;
 }
-
 
 (:test)
 function ioptronTickEndpointsMatchBothAnnuli(logger as Test.Logger) {
@@ -628,10 +1037,12 @@ function ioptronTickEndpointsMatchBothAnnuli(logger as Test.Logger) {
         var inner1 = ioptronTickEndRadius(36.0, 44.0, directions[i], 170.0);
         var outer0 = ioptronTickStartRadius(60.0, 70.0, directions[i], 170.0);
         var outer1 = ioptronTickEndRadius(60.0, 70.0, directions[i], 170.0);
-        if (!withinTolerance(inner0, expectedInner0[i], 0.0002)
-            || !withinTolerance(inner1, expectedInner1[i], 0.0002)
-            || !withinTolerance(outer0, expectedOuter0[i], 0.0002)
-            || !withinTolerance(outer1, expectedOuter1[i], 0.0002)) {
+        if (
+            !withinTolerance(inner0, expectedInner0[i], 0.0002)
+                || !withinTolerance(inner1, expectedInner1[i], 0.0002)
+                || !withinTolerance(outer0, expectedOuter0[i], 0.0002)
+                || !withinTolerance(outer1, expectedOuter1[i], 0.0002)
+        ) {
             ok = false;
         }
     }
@@ -642,15 +1053,23 @@ function ioptronTickEndpointsMatchBothAnnuli(logger as Test.Logger) {
 function ioptronNormalize2PiBoundaries(logger as Test.Logger) {
     var twoPi = 2.0 * Math.PI;
     var epsilon = 0.0001;
-    var inputs = [0.0, twoPi - epsilon, twoPi, twoPi + epsilon,
-                  -epsilon, -twoPi, 2.0 * twoPi + epsilon];
-    var expected = [0.0, twoPi - epsilon, 0.0, epsilon,
-                    twoPi - epsilon, 0.0, epsilon];
+    var inputs = [
+        0.0,
+        twoPi - epsilon,
+        twoPi,
+        twoPi + epsilon,
+        -epsilon,
+        -twoPi,
+        2.0 * twoPi + epsilon
+    ];
+    var expected = [0.0, twoPi - epsilon, 0.0, epsilon, twoPi - epsilon, 0.0, epsilon];
     var ok = ioptronNormalize2Pi(null) == null;
     for (var i = 0; i < inputs.size(); i += 1) {
         var normalized = ioptronNormalize2Pi(inputs[i]);
-        if (normalized == null || normalized < 0.0 || normalized >= twoPi
-            || !withinTolerance(normalized, expected[i], 0.0002)) {
+        if (
+            normalized == null || normalized < 0.0 || normalized >= twoPi
+                || !withinTolerance(normalized, expected[i], 0.0002)
+        ) {
             ok = false;
         }
     }
@@ -660,12 +1079,24 @@ function ioptronNormalize2PiBoundaries(logger as Test.Logger) {
 (:test)
 function ioptronMarkerCardinalPositions(logger as Test.Logger) {
     var point = [0.0, 0.0];
-    if (!ioptronMarkerPosition(point, 0.0, 0.0, 35.0, 227.0, 227.0, 170.0, 70.0)
+    if (
+        !ioptronMarkerPosition(point, 0.0, 0.0, 35.0, 227.0, 227.0, 170.0, 70.0)
             || !withinTolerance(point[0], 227.0, 0.002)
-            || !withinTolerance(point[1], 312.0, 0.002)) { return false; }
+            || !withinTolerance(point[1], 312.0, 0.002)
+    ) {
+        return false;
+    }
     var compact = new DisplayProfile(218, 218, 19);
-    return ioptronMarkerPosition(point, 0.0, 0.0, 35.0,
-            compact.centerX.toFloat(), compact.centerY.toFloat(), compact.reticleRadius, 70.0)
+    return ioptronMarkerPosition(
+        point,
+        0.0,
+        0.0,
+        35.0,
+        compact.centerX.toFloat(),
+        compact.centerY.toFloat(),
+        compact.reticleRadius,
+        70.0
+    )
         && withinTolerance(point[0], 109.0, 0.002)
         && withinTolerance(point[1], 109.0 + compact.reticleRadius / 2.0, 0.002);
 }
@@ -696,13 +1127,17 @@ function ioptronMarkerAtEighteenHours(logger as Test.Logger) {
 
 (:test)
 function reticlePoleDistanceBoundariesAndSifoScale(logger as Test.Logger) {
-    if (!reticleValidPoleDistance(RETICLE_IOPTRON, 0.0)
+    if (
+        !reticleValidPoleDistance(RETICLE_IOPTRON, 0.0)
             || !reticleValidPoleDistance(RETICLE_IOPTRON, 70.0)
             || reticleValidPoleDistance(RETICLE_IOPTRON, 70.001)
             || !reticleValidPoleDistance(RETICLE_SIFO, 44.0)
             || reticleValidPoleDistance(RETICLE_SIFO, 44.001)
             || reticleValidPoleDistance(RETICLE_SIFO, -0.001)
-            || reticleValidPoleDistance(RETICLE_SIFO, null)) { return false; }
+            || reticleValidPoleDistance(RETICLE_SIFO, null)
+    ) {
+        return false;
+    }
     var profiles = [
         new DisplayProfile(218, 218, 19),
         new DisplayProfile(260, 260, 19),
@@ -712,19 +1147,42 @@ function reticlePoleDistanceBoundariesAndSifoScale(logger as Test.Logger) {
         var profile = profiles[i];
         var sifoRadius = reticleAngularRadius(RETICLE_SIFO, profile.reticleRadius);
         var point = [0.0, 0.0];
-        if (!withinTolerance(reticleAngularRadius(RETICLE_IOPTRON, profile.reticleRadius),
-                             profile.reticleRadius, 0.0002)
-                || !withinTolerance(ioptronRingRadius(44.0, sifoRadius),
-                                    profile.reticleRadius, 0.0002)
-                || !ioptronMarkerPosition(point, 0.0, 0.0, 44.0,
-                    profile.centerX.toFloat(), profile.centerY.toFloat(),
-                    sifoRadius, 44.0)
+        if (
+            !withinTolerance(
+                reticleAngularRadius(RETICLE_IOPTRON, profile.reticleRadius),
+                profile.reticleRadius,
+                0.0002
+            )
+                || !withinTolerance(
+                    ioptronRingRadius(44.0, sifoRadius),
+                    profile.reticleRadius,
+                    0.0002
+                )
+                || !ioptronMarkerPosition(
+                    point,
+                    0.0,
+                    0.0,
+                    44.0,
+                    profile.centerX.toFloat(),
+                    profile.centerY.toFloat(),
+                    sifoRadius,
+                    44.0
+                )
                 || !withinTolerance(point[0], profile.centerX.toFloat(), 0.002)
-                || !withinTolerance(point[1],
-                                    profile.centerY + profile.reticleRadius, 0.002)
-                || ioptronMarkerPosition(point, 0.0, 0.0, 44.001,
-                    profile.centerX.toFloat(), profile.centerY.toFloat(),
-                    sifoRadius, 44.0)) { return false; }
+                || !withinTolerance(point[1], profile.centerY + profile.reticleRadius, 0.002)
+                || ioptronMarkerPosition(
+                    point,
+                    0.0,
+                    0.0,
+                    44.001,
+                    profile.centerX.toFloat(),
+                    profile.centerY.toFloat(),
+                    sifoRadius,
+                    44.0
+                )
+        ) {
+            return false;
+        }
     }
     return true;
 }
@@ -761,7 +1219,6 @@ function reticleMagnificationCentersPivotAtSixTimesScale(logger as Test.Logger) 
         && withinTolerance(magnifiedReticleCoordinate(88.0, 87.0, 130.0), 136.0, 0.0001);
 }
 
-
 (:test)
 function ioptronMarkerRejectsPoleDistanceAboveSeventy(logger as Test.Logger) {
     var point = [0.0, 0.0];
@@ -777,9 +1234,10 @@ function ioptronRejectsNaNWhenSupported(logger as Test.Logger) {
     } catch (e) {
         return true;
     }
-    if (nan == nan) { return true; }
-    return !reticleValidPoleDistance(RETICLE_IOPTRON, nan)
-        && ioptronNormalize2Pi(nan) == null;
+    if (nan == nan) {
+        return true;
+    }
+    return !reticleValidPoleDistance(RETICLE_IOPTRON, nan) && ioptronNormalize2Pi(nan) == null;
 }
 
 (:test)
@@ -790,7 +1248,9 @@ function ioptronMarkerRejectsNaNWhenSupported(logger as Test.Logger) {
     } catch (e) {
         return true;
     }
-    if (nan == nan) { return true; }
+    if (nan == nan) {
+        return true;
+    }
     var point = [0.0, 0.0];
     return !ioptronMarkerPosition(point, nan, 0.0, 35.0, 227.0, 227.0, 170.0, 70.0);
 }
@@ -804,10 +1264,28 @@ function ioptronMarkerAdvancesAcrossWrap(logger as Test.Logger) {
     // For elapsed=3600 s, H=2π−0.2+elapsed*(1.0027379π/43200)
     // wraps to 0.0625162 rad and rho=170*35/70=85 px.
     var point = [0.0, 0.0];
-    var ok = ioptronMarkerPosition(point, startAngle, elapsedSeconds, poleDistance, 227.0, 227.0, 170.0, 70.0)
+    var ok = ioptronMarkerPosition(
+        point,
+        startAngle,
+        elapsedSeconds,
+        poleDistance,
+        227.0,
+        227.0,
+        170.0,
+        70.0
+    )
         && withinTolerance(point[0], 232.3104, 0.01)
         && withinTolerance(point[1], 311.8340, 0.01);
-    var invalidElapsed = ioptronMarkerPosition(point, startAngle, null, poleDistance, 227.0, 227.0, 170.0, 70.0);
+    var invalidElapsed = ioptronMarkerPosition(
+        point,
+        startAngle,
+        null,
+        poleDistance,
+        227.0,
+        227.0,
+        170.0,
+        70.0
+    );
     return ok && !invalidElapsed;
 }
 
@@ -819,21 +1297,34 @@ class DisplayInputTestView {
     var navigationCalls = 0;
     var magnificationAllowed = false;
     var magnified = false;
-
-    function touchWakeOnly() { return screen == PolarFinderView.DISPLAY; }
-    function tap(y) { taps += 1; }
-    function navigate(delta) { navigation += delta; navigationCalls += 1; }
+    
+    function touchWakeOnly() {
+        return screen == PolarFinderView.DISPLAY;
+    }
+    function tap(y) {
+        taps += 1;
+    }
+    function navigate(delta) {
+        navigation += delta;
+        navigationCalls += 1;
+    }
     function handleMagnificationKey(key) {
-        if (!magnificationAllowed) { return false; }
+        if (!magnificationAllowed) {
+            return false;
+        }
         magnified = reticleMagnificationEndpoint(magnified, key);
         return true;
     }
     function select() {
-        if (screen == PolarFinderView.DISPLAY) { screen = PolarFinderView.ACTIONS; }
+        if (screen == PolarFinderView.DISPLAY) {
+            screen = PolarFinderView.ACTIONS;
+        }
     }
     function back() {
         backs += 1;
-        if (screen == PolarFinderView.DISPLAY) { screen = PolarFinderView.LOCATE; }
+        if (screen == PolarFinderView.DISPLAY) {
+            screen = PolarFinderView.LOCATE;
+        }
     }
 }
 
@@ -841,35 +1332,45 @@ class DisplayInputTestView {
 function displayDelegateSeparatesTouchFromPhysicalButtons(logger as Test.Logger) {
     var view = new DisplayInputTestView();
     var delegate = new PolarFinderDelegate(view);
-
+    
     // The ambiguous behavior layer must not mutate state. Its false result
     // allows the framework to forward the original event to a raw callback.
-    if (delegate.onSelect() || delegate.onNextPage()
-            || delegate.onPreviousPage() || delegate.onBack()
-            || view.screen != PolarFinderView.DISPLAY) { return false; }
-
+    if (
+        delegate.onSelect() || delegate.onNextPage() || delegate.onPreviousPage()
+            || delegate.onBack()
+            || view.screen != PolarFinderView.DISPLAY
+    ) {
+        return false;
+    }
+    
     // Raw touch is consumed on Display without invoking any app action.
-    if (!delegate.consumeTouch() || view.screen != PolarFinderView.DISPLAY
-            || view.taps != 0 || view.navigation != 0 || view.backs != 0) {
+    if (
+        !delegate.consumeTouch() || view.screen != PolarFinderView.DISPLAY || view.taps != 0
+            || view.navigation != 0
+            || view.backs != 0
+    ) {
         return false;
     }
-
+    
     // A physical START/Select still opens Actions.
-    if (!delegate.handleKey(WatchUi.KEY_ENTER)
-            || view.screen != PolarFinderView.ACTIONS) { return false; }
-
-    // Other screens retain tap, vertical swipe, and right-swipe Back actions.
-    if (!delegate.handleTap(227)
-            || !delegate.handleSwipe(WatchUi.SWIPE_UP)
-            || !delegate.handleSwipe(WatchUi.SWIPE_RIGHT)
-            || view.taps != 1 || view.navigation != 1 || view.backs != 1) {
+    if (!delegate.handleKey(WatchUi.KEY_ENTER) || view.screen != PolarFinderView.ACTIONS) {
         return false;
     }
-
+    
+    // Other screens retain tap, vertical swipe, and right-swipe Back actions.
+    if (
+        !delegate.handleTap(227) || !delegate.handleSwipe(WatchUi.SWIPE_UP)
+            || !delegate.handleSwipe(WatchUi.SWIPE_RIGHT)
+            || view.taps != 1
+            || view.navigation != 1
+            || view.backs != 1
+    ) {
+        return false;
+    }
+    
     // Physical BACK from Display still returns to Locate.
     view.screen = PolarFinderView.DISPLAY;
-    return delegate.handleKey(WatchUi.KEY_ESC)
-        && view.screen == PolarFinderView.LOCATE;
+    return delegate.handleKey(WatchUi.KEY_ESC) && view.screen == PolarFinderView.LOCATE;
 }
 
 (:test)
@@ -877,39 +1378,43 @@ function displayDelegateRoutesPhysicalMagnificationBeforeNavigation(logger as Te
     var view = new DisplayInputTestView();
     var delegate = new PolarFinderDelegate(view);
     view.magnificationAllowed = true;
-    if (!delegate.handleKey(WatchUi.KEY_UP)
-            || !delegate.handleKey(WatchUi.KEY_UP)
+    if (
+        !delegate.handleKey(WatchUi.KEY_UP) || !delegate.handleKey(WatchUi.KEY_UP)
             || !view.magnified
             || view.navigationCalls != 0
             || !delegate.handleKey(WatchUi.KEY_DOWN)
             || !delegate.handleKey(WatchUi.KEY_DOWN)
             || view.magnified
-            || view.navigationCalls != 0) {
+            || view.navigationCalls != 0
+    ) {
         return false;
     }
     view.magnificationAllowed = false;
-    return delegate.handleKey(WatchUi.KEY_UP)
-        && delegate.handleKey(WatchUi.KEY_DOWN)
+    return delegate.handleKey(WatchUi.KEY_UP) && delegate.handleKey(WatchUi.KEY_DOWN)
         && view.navigationCalls == 2
         && view.navigation == 0;
 }
 
 class AtmosphereReturnTestModel {
     var saves = 0;
-
-    function savePreferences() { saves += 1; }
+    
+    function savePreferences() {
+        saves += 1;
+    }
 }
 
 class AtmosphereReturnTestView extends PolarFinderView {
     var opened = -1;
     var testModel;
-
+    
     function initialize() {
         testModel = new AtmosphereReturnTestModel();
         PolarFinderView.initialize(testModel);
     }
-
-    function open(screen) { opened = screen; }
+    
+    function open(screen) {
+        opened = screen;
+    }
     function ensureFocusVisible() {}
 }
 
@@ -936,8 +1441,10 @@ class ActionsResumeTestModel {
     var humidity = 50.0;
     var calculationAlert = false;
     var reticleType = RETICLE_GENERIC;
-
-    function hasLocation() { return true; }
+    
+    function hasLocation() {
+        return true;
+    }
     function calculationSucceeded() {}
 }
 
@@ -945,17 +1452,17 @@ class ActionsResumeTestView extends PolarFinderView {
     var calculationStarts = 0;
     var restartRequested = false;
     var timerStops = 0;
-
+    
     function initialize() {
         PolarFinderView.initialize(new ActionsResumeTestModel());
     }
-
+    
     function beginCalculation(restarting) {
         calculationStarts += 1;
         restartRequested = restarting;
         PolarFinderView.beginCalculation(restarting);
     }
-
+    
     function stopTimers() {
         timerStops += 1;
         PolarFinderView.stopTimers();
@@ -966,7 +1473,9 @@ function exerciseActionsResume(runPendingDisplayTick) {
     var view = new ActionsResumeTestView();
     view.open(PolarFinderView.DISPLAY);
     view.select();
-    if (runPendingDisplayTick) { view.displayTick(); }
+    if (runPendingDisplayTick) {
+        view.displayTick();
+    }
     view.back();
     return view;
 }
@@ -974,9 +1483,7 @@ function exerciseActionsResume(runPendingDisplayTick) {
 (:test)
 function actionsBackRecalculatesAfterDisplayTimerStops(logger as Test.Logger) {
     var view = exerciseActionsResume(true);
-    var ok = view.calculationStarts == 1
-        && view.restartRequested
-        && view.timerStops == 2
+    var ok = view.calculationStarts == 1 && view.restartRequested && view.timerStops == 2
         && !view.touchWakeOnly();
     view.stopTimers();
     return ok;
@@ -985,9 +1492,7 @@ function actionsBackRecalculatesAfterDisplayTimerStops(logger as Test.Logger) {
 (:test)
 function actionsBackRecalculatesBeforePendingDisplayTick(logger as Test.Logger) {
     var view = exerciseActionsResume(false);
-    var ok = view.calculationStarts == 1
-        && view.restartRequested
-        && view.timerStops == 1
+    var ok = view.calculationStarts == 1 && view.restartRequested && view.timerStops == 1
         && !view.touchWakeOnly();
     view.stopTimers();
     return ok;
