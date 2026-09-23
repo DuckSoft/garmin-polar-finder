@@ -54,6 +54,27 @@ are regenerated from `artwork/launcher-icon.svg` when it changes: 65×65 for the
 965 and dithered 40×40 family-qualified resources for the 64-color Forerunner
 255 displays.
 
+## Astrometry source layout
+
+The `Astrometry` module is declared across `source/Astrometry*.mc`; callers
+continue to use the same module without forwarding wrappers. `base.sourcePath`
+includes these files automatically.
+
+- `Astrometry.mc`: resumable `begin`/`cancel`/`step` lifecycle and result assembly.
+- `AstrometrySeries.mc`: budgeted ephemeris, nutation, and CIO series evaluation.
+- `AstrometryMath.mc`: shared constants, angles, vectors, and rotation matrices.
+- `AstrometryTime.mc`: leap seconds, calendars, and time-scale conversions.
+- `AstrometryEarthOrientation.mc`: Earth rotation, observer position, precession,
+  and fundamental arguments.
+- `AstrometryStars.mc`: catalog proper motion, parallax, deflection, and aberration.
+- `AstrometryReticle.mc`: refraction, local pole geometry, and `reticleAt`.
+- `AstrometryEphemerisData.mc`, `AstrometryNutationLuniSolarData.mc`,
+  `AstrometryNutationPlanetaryData.mc`, and `AstrometryCioData.mc`: SOFA-derived
+  coefficient tables, kept separate from the algorithms.
+
+Keep coefficient order and numeric literal types intact when maintaining the
+tables; the calculation intentionally uses both Float and Double precision.
+
 ## Bundled Earth data
 
 The astrometry calculation uses bundled, read-only reference data:
