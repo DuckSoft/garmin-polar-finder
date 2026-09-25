@@ -75,7 +75,28 @@ function regressionRunCase(fixture, logger) {
     ok = ok && regressionAngleError(result[:reticleHourAngle], expected[8]) <= angular;
     ok = ok && regressionAbsoluteError(result[:reticlePoleDistance], expected[9]) <= angular;
     if (!ok) {
-        logger.debug("independent oracle anchor mismatch: " + fixture[:name]);
+        logger.debug(
+            "independent oracle anchor mismatch: " + fixture[:name] + " aob="
+                + regressionAngleError(result[:aob], expected[0])
+                + " zob="
+                + regressionAbsoluteError(result[:zob], expected[1])
+                + " hob="
+                + regressionAngleError(result[:hob], expected[2])
+                + " dob="
+                + regressionAbsoluteError(result[:dob], expected[3])
+                + " rob="
+                + regressionAngleError(result[:rob], expected[4])
+                + " eo="
+                + regressionAngleError(result[:eo], expected[5])
+                + " x="
+                + regressionAbsoluteError(result[:reticleX], expected[6])
+                + " y="
+                + regressionAbsoluteError(result[:reticleY], expected[7])
+                + " ha="
+                + regressionAngleError(result[:reticleHourAngle], expected[8])
+                + " pd="
+                + regressionAbsoluteError(result[:reticlePoleDistance], expected[9])
+        );
         return false;
     }
     
