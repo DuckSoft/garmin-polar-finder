@@ -1814,7 +1814,7 @@ class PolarFinderView extends WatchUi.View {
             stopTimers();
             open(LOCATE);
         } else if (_state.screen == CALC) {
-            _cancelRequested = true;
+            _calculation.stop(self);
         } else if (_state.screen == DISPLAY) {
             open(LOCATE);
         } else if (_state.screen == ACTIONS) {
@@ -1947,6 +1947,7 @@ class PolarFinderView extends WatchUi.View {
                 Astrometry.cancel(_astroState);
                 _astroState = null;
             }
+            _calculation.completed();
             _result = null;
             open(LOCATE);
             return;
@@ -2151,6 +2152,7 @@ class PolarFinderView extends WatchUi.View {
     }
     function showError(text) {
         stopTimers();
+        _calculation.completed();
         _errorText = text;
         _state.screen = CALC_ERROR;
         _state.focus = 0;
