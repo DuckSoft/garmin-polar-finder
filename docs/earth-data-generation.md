@@ -17,8 +17,8 @@ EGM96 (`us_nga_egm96_15.tif`, 2019-12-27) global 15° lattice and interpolation
 implementation. It has no generator or raw-data refresh pipeline. Do not
 regenerate it as part of an IERS update.
 
-The initial split preserves all 1,104 EOP numeric literals and the existing
-coverage: MJD **61292–61659**, **2026-09-09–2027-09-11**. Snapshot values are
+The split preserves all 1,104 EOP numeric literals and the current
+coverage: MJD **61308–61675**, **2026-09-25–2027-09-27**. Snapshot values are
 `xp` and `yp` in arcseconds and DUT1 in seconds. The runtime interpolates daily
 triplets at fractional UTC MJD and converts `xp` and `yp` to radians in the
 returned dictionary. Successful lookups return `:status => 0`, `:dut1`, `:xp`,
@@ -33,7 +33,7 @@ Exactly one file matching `data/iers/finals2000A-*.txt` must exist. Its name
 must be `finals2000A-YYYY-MM-DD.txt`, with a valid UTC calendar date recording
 the selected coverage start, not the retrieval date. It contains exactly
 **368 contiguous daily records**, beginning on that date and ending 367 days
-later. The initial file is `finals2000A-2026-09-09.txt`.
+later. The current file is `finals2000A-2026-09-25.txt`.
 
 The snapshot retains the official fixed-width records rather than converting
 them to CSV or synthesizing missing columns. Calendar dates and MJD must
@@ -58,6 +58,7 @@ repository root:
 ```sh
 make generate-iers
 make check-generated
+make check-freshness
 ```
 
 The Make targets pass `MONKEYC_FMT` to the generator. `UV` and `MONKEYC_FMT`
@@ -67,6 +68,7 @@ invocation uses `monkeyc-fmt` from `PATH`:
 ```sh
 uv run --script tools/iers.py generate
 uv run --script tools/iers.py check
+uv run --script tools/iers.py check-freshness
 ```
 
 `generate` reads only the checked-in snapshot and replaces the generated
@@ -82,6 +84,12 @@ a Python interpreter on first use; fully offline operation requires uv and a
 compatible Python installation already available. Ordinary builds consume the
 checked-in Monkey C module and have no regeneration or refresh dependency.
 
+`check-freshness` is the date-sensitive guard used by CI. It validates the
+snapshot without downloading anything: the coverage start must be no more than
+seven UTC days old, and the end must be at least 330 UTC days in the future.
+The 330-day threshold leaves room for the monthly maintenance schedule while
+retaining roughly a full year of predictions in the 368-day table.
+
 ## Explicit refresh and failure handling
 
 Only the updater fetches IERS data:
@@ -91,6 +99,13 @@ make update-iers
 
 uv run --script tools/iers.py update
 ```
+
+The repository also runs this updater automatically on the first day of each
+month and on demand through **Update IERS EOP data** in GitHub Actions. A
+successful run validates the generated source, freshness, formatting, and all
+three simulator test profiles, then opens a pull request containing the dated
+snapshot and generated module. If the download or any validation fails, no
+branch or pull request is created.
 
 The updater downloads
 [`finals2000A.all`](https://datacenter.iers.org/data/9/finals2000A.all) from the

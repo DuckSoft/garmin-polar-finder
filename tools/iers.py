@@ -21,6 +21,8 @@ DATA = ROOT / "data" / "iers"
 OUTPUT = ROOT / "source" / "IersEopData.mc"
 URL = "https://datacenter.iers.org/data/9/finals2000A.all"
 DAYS = 368
+MAX_START_AGE_DAYS = 7
+MIN_FUTURE_DAYS = 330
 EPOCH = date(1858, 11, 17)
 NAME = re.compile(r"finals2000A-(\d{4}-\d{2}-\d{2})\.txt")
 NUMBER = re.compile(r"[+-]?\d+\.\d+")
@@ -91,6 +93,30 @@ def snapshot() -> Path:
     if len(paths) != 1:
         raise ValueError(f"Expected exactly one dated IERS snapshot, found {len(paths)}")
     return paths[0]
+
+
+def coverage(path: Path) -> tuple[date, date]:
+    rows = parse_snapshot(path, path.read_bytes())
+    return EPOCH + timedelta(days=rows[0].mjd), EPOCH + timedelta(days=rows[-1].mjd)
+
+
+def check_freshness(path: Path, today: date) -> tuple[date, date]:
+    start, end = coverage(path)
+    age = (today - start).days
+    remaining = (end - today).days
+    if age < 0:
+        raise ValueError(f"coverage starts in the future ({start}; today is {today})")
+    if age > MAX_START_AGE_DAYS:
+        raise ValueError(
+            f"coverage starts {age} days ago ({start}); refresh is at most "
+            f"{MAX_START_AGE_DAYS} days behind"
+        )
+    if remaining < MIN_FUTURE_DAYS:
+        raise ValueError(
+            f"coverage ends in {remaining} days ({end}); at least "
+            f"{MIN_FUTURE_DAYS} future days are required"
+        )
+    return start, end
 
 
 def render(path: Path, rows: list[Row]) -> bytes:
@@ -207,7 +233,7 @@ def select_snapshot(content: bytes, today: date) -> bytes:
             continue
         first = window[0][0].mjd
         if (
-            0 <= current - first <= 7
+            0 <= current - first <= MAX_START_AGE_DAYS
             and first <= current <= row.mjd
             and (latest_start is None or first > latest_start)
         ):
@@ -248,13 +274,17 @@ def update() -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("generate", "check", "update"))
+    parser.add_argument("command", choices=("generate", "check", "check-freshness", "update"))
     command = parser.parse_args().command
     try:
         if command == "update":
             update()
             return 0
         path = snapshot()
+        if command == "check-freshness":
+            start, end = check_freshness(path, datetime.now(timezone.utc).date())
+            print(f"IERS coverage is fresh: {start}–{end} ({MIN_FUTURE_DAYS}+ future days required)")
+            return 0
         expected = render(path, parse_snapshot(path, path.read_bytes()))
         if command == "check":
             if not OUTPUT.exists() or OUTPUT.read_bytes() != expected:
