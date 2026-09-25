@@ -20,7 +20,7 @@ TEST_JUNGLES := monkey.jungle:test.jungle
 ICON_260 := resources-round-260x260/drawables/launcher_icon.png
 ICONS := $(ICON_454) $(ICON_218) $(ICON_260)
 
-.PHONY: build build-all package simulator run format lint test test-profiles clean icons generate-iers check-generated update-iers $(DEVICES:%=build-%) $(TEST_DEVICES:%=test-%)
+.PHONY: build build-all package simulator run format lint test test-profiles clean icons generate-iers check-generated update-iers generate-astrometry-regression check-astrometry-regression $(DEVICES:%=build-%) $(TEST_DEVICES:%=test-%)
 
 icons: $(ICONS)
 
@@ -92,6 +92,12 @@ check-generated:
 
 update-iers:
 	MONKEYC_FMT="$(MONKEYC_FMT)" $(UV) run --script tools/iers.py update
+
+generate-astrometry-regression:
+	$(UV) run --script tools/astrometry_regression.py generate
+
+check-astrometry-regression:
+	$(UV) run --script tools/astrometry_regression.py check
 
 
 clean:

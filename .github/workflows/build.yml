@@ -29,6 +29,8 @@ jobs:
           version: '0.12.12'
       - name: Check generated IERS data
         run: make check-generated
+      - name: Check independent astrometry oracle
+        run: make check-astrometry-regression
       - name: Check formatting
         run: make lint
 
