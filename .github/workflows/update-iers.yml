@@ -1,0 +1,127 @@
+name: Update IERS EOP data
+
+on:
+  schedule:
+    # Bulletin A is published weekly; run twice weekly so the seven-day
+    # freshness gate remains valid even when one scheduled run is delayed.
+    - cron: '17 3 * * 1,4'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-iers
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Refresh and validate IERS data
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          # Manual dispatch can originate from any ref; always update from
+          # the repository's PR base so the generated branch is reviewable.
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install monkeyc-fmt
+        run: cargo install --locked --version 0.1.1 monkeyc-fmt
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.12.12'
+
+      - name: Refresh snapshot and generated source
+        run: make update-iers
+
+      - name: Validate generated source, freshness, and formatting
+        run: |
+          make check-generated
+          make check-freshness
+          make lint
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up ConnectIQ SDK and simulator
+        uses: DuckSoft/setup-connectiq-actions@v2
+        with:
+          sdk-version: '9.2.0'
+          install-simulator-dependencies: 'true'
+
+      - name: Create test developer key
+        shell: bash
+        run: |
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 \
+            -out "$RUNNER_TEMP/test-key.pem"
+          openssl pkcs8 -topk8 -inform PEM -outform DER \
+            -in "$RUNNER_TEMP/test-key.pem" -out "$RUNNER_TEMP/test-key.der" -nocrypt
+
+      - name: Run numerical regression tests for all profiles
+        shell: bash
+        run: |
+          bash tests/run-simulator-tests.sh \
+            make SHELL=bash SDK_HOME="$CONNECT_IQ_HOME" \
+            DEVELOPER_KEY="$RUNNER_TEMP/test-key.der" \
+            ICONS= test-profiles
+
+      - name: Check for data changes
+        id: changes
+        shell: bash
+        run: |
+          if git diff --quiet -- data/iers source/IersEopData.mc README.md docs/earth-data-generation.md; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push update branch
+        id: publish
+        if: steps.changes.outputs.changed == 'true'
+        shell: bash
+        env:
+          UPDATE_BRANCH: automation/iers-update-${{ github.run_id }}
+        run: |
+          git switch -c "$UPDATE_BRANCH"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/iers source/IersEopData.mc README.md docs/earth-data-generation.md
+          git commit -m 'chore(data): update IERS EOP data'
+          git push --set-upstream origin "$UPDATE_BRANCH"
+          echo "branch=$UPDATE_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Open pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPDATE_BRANCH: ${{ steps.publish.outputs.branch }}
+        run: |
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$UPDATE_BRANCH" \
+            --title 'chore(data): update IERS EOP data' \
+            --body '## Summary
+
+            Refresh the checked-in IERS Bulletin A Earth orientation snapshot and regenerated Monkey C source.
+
+            ## Validation
+
+            - `make check-generated`
+            - `make check-freshness`
+            - `make lint`
+            - numerical simulator tests for fr255s, fr255, and fr965
+
+            Please review the coverage dates and generated EOP diff before merging.'

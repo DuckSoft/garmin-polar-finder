@@ -22,7 +22,10 @@ function unixTimestampRetainsSubdayPrecision(logger as Test.Logger) {
 function beijingPressureOffVectorMatchesPyerfa(logger as Test.Logger) {
     var unixSeconds = 1788967221;
     var jd = Astrometry.unixSecondsToJulianDate(unixSeconds);
-    var eop = IersEopData.eop(jd - 2400000.5d);
+    // Keep this external reference vector stable as the rolling production
+    // table advances. The fixture contains the official EOP rows used when
+    // the pyerfa values below were recorded.
+    var eop = IersEopReferenceData.eop(jd - 2400000.5d);
     var pi = Math.PI.toDouble();
     var rc = (2.0d + 31.0d / 60.0d + 49.09d / 3600.0d) * 15.0d * pi / 180.0d;
     var dc = (89.0d + 15.0d / 60.0d + 50.8d / 3600.0d) * pi / 180.0d;
@@ -790,20 +793,22 @@ function endToEndPolarisPropagationMatchesFullRecompute(logger as Test.Logger) {
 
 (:test)
 function iersEopInterpolatesAndChecksBoundsAndWarnings(logger as Test.Logger) {
-    var a = IersEopData.eop(61292.0);
-    var b = IersEopData.eop(61293.0);
-    var m = IersEopData.eop(61292.5);
-    var finalDay = IersEopData.eop(61659.0);
+    var first = IersEopData.firstDate();
+    var last = IersEopData.lastDate();
+    var a = IersEopData.eop(first);
+    var b = IersEopData.eop(first + 1.0);
+    var m = IersEopData.eop(first + 0.5);
+    var finalDay = IersEopData.eop(last);
     var ok = a[:status] == 0 && b[:status] == 0 && m[:status] == 0;
-    ok = ok && m[:dut1] > b[:dut1] && m[:dut1] < a[:dut1];
-    var loXp = a[:xp] < b[:xp] ? a[:xp] : b[:xp];
-    var hiXp = a[:xp] > b[:xp] ? a[:xp] : b[:xp];
-    ok = ok && m[:xp] > loXp && m[:xp] < hiXp;
-    ok = ok && a[:first] == 61292.0 && a[:last] == 61659.0;
-    ok = ok && finalDay[:status] == 0 && withinTolerance(finalDay[:dut1], -0.1044597d, 1.0e-8d);
-    ok = ok && !IersEopData.eop(61628.999999d)[:warning] && IersEopData.eop(61629.0d)[:warning];
-    ok = ok && IersEopData.eop(61291.999999d)[:status] < 0
-        && IersEopData.eop(61659.000001d)[:status] < 0;
+    ok = ok && withinTolerance(m[:dut1], (a[:dut1] + b[:dut1]) / 2.0, 1.0e-10d);
+    ok = ok && withinTolerance(m[:xp], (a[:xp] + b[:xp]) / 2.0, 1.0e-12d);
+    ok = ok && withinTolerance(m[:yp], (a[:yp] + b[:yp]) / 2.0, 1.0e-12d);
+    ok = ok && a[:first] == first && a[:last] == last;
+    ok = ok && finalDay[:status] == 0;
+    ok = ok && !IersEopData.eop(last - 30.000001d)[:warning]
+        && IersEopData.eop(last - 30.0d)[:warning];
+    ok = ok && IersEopData.eop(first - 0.000001d)[:status] < 0
+        && IersEopData.eop(last + 0.000001d)[:status] < 0;
     return ok;
 }
 

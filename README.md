@@ -25,6 +25,7 @@ The Makefile reads the active SDK from `~/Library/Application Support/Garmin/Con
 make format                     # format all nonignored Monkey C source files
 make lint                       # check Monkey C and project XML formatting
 make check-generated            # verify checked-in IERS output without refreshing data
+make check-freshness            # require a current snapshot and 330+ future days
 make generate-iers              # regenerate IERS source from the checked-in snapshot
 make update-iers                # explicitly download and replace the IERS snapshot
 make build                      # compile DEVICE (fr965 by default)
@@ -82,7 +83,7 @@ The astrometry calculation uses bundled, read-only reference data:
 - **Geoid:** NGA EGM96 (`us_nga_egm96_15.tif`) reduced to a global 15° lattice
   and bilinearly interpolated for MSL-to-ellipsoid height conversion.
 - **Earth orientation:** IERS Bulletin A `finals2000A` prediction rows, MJD
-  **61292–61659** (**2026-09-09–2027-09-11**), with DUT1 and polar motion
+  **61308–61675** (**2026-09-25–2027-09-27**), with DUT1 and polar motion
   (`xp`, `yp`) interpolated at the fractional UTC MJD. Dates outside this
   interval are rejected; the final 30 days are marked as nearing expiry.
 
