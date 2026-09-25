@@ -60,19 +60,20 @@ function regressionRunCase(fixture, logger) {
     var expected = fixture[:anchor];
     var ok = true;
     var angular = AstrometryRegressionReference.ANGULAR_TOLERANCE;
+    var hourAngle = AstrometryRegressionReference.HOUR_ANGLE_TOLERANCE;
     var tangent = AstrometryRegressionReference.TANGENT_TOLERANCE;
     // ERFA's atco13 outputs: azimuth, zenith distance, hour angle,
     // declination, right ascension, equation of origins.  The remaining four
     // values are the reticle tangent-plane projection used by the app.
     ok = ok && regressionAngleError(result[:aob], expected[0]) <= angular;
     ok = ok && regressionAbsoluteError(result[:zob], expected[1]) <= angular;
-    ok = ok && regressionAngleError(result[:hob], expected[2]) <= angular;
+    ok = ok && regressionAngleError(result[:hob], expected[2]) <= hourAngle;
     ok = ok && regressionAbsoluteError(result[:dob], expected[3]) <= angular;
     ok = ok && regressionAngleError(result[:rob], expected[4]) <= angular;
     ok = ok && regressionAngleError(result[:eo], expected[5]) <= angular;
     ok = ok && regressionAbsoluteError(result[:reticleX], expected[6]) <= tangent;
     ok = ok && regressionAbsoluteError(result[:reticleY], expected[7]) <= tangent;
-    ok = ok && regressionAngleError(result[:reticleHourAngle], expected[8]) <= angular;
+    ok = ok && regressionAngleError(result[:reticleHourAngle], expected[8]) <= hourAngle;
     ok = ok && regressionAbsoluteError(result[:reticlePoleDistance], expected[9]) <= angular;
     if (!ok) {
         logger.debug(
@@ -113,7 +114,7 @@ function regressionRunCase(fixture, logger) {
             && regressionAbsoluteError(actualStep[:zob], expectedStep[2]) <= angular
             && regressionAbsoluteError(actualStep[:x], expectedStep[3]) <= tangent
             && regressionAbsoluteError(actualStep[:y], expectedStep[4]) <= tangent
-            && regressionAngleError(actualStep[:hourAngle], expectedStep[5]) <= angular
+            && regressionAngleError(actualStep[:hourAngle], expectedStep[5]) <= hourAngle
             && regressionAbsoluteError(actualStep[:poleDistance], expectedStep[6]) <= angular;
         if (!stepOk) {
             logger.debug(
