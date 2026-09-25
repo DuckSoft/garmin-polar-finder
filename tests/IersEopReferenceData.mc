@@ -7,7 +7,7 @@
  */
 module IersEopReferenceData {
     var EOP = [0.2031920, 0.3340950, -0.0012829, 0.2024300, 0.3334080, -0.0023990];
-
+    
     function eop(mjd) {
         mjd = mjd.toDouble();
         if (mjd < 61292.0 || mjd > 61293.0) {
