@@ -8,7 +8,7 @@ The app separates Earth data by maintenance responsibility:
 | --- | --- | --- |
 | `source/GeoidData.mc` | Handwritten and checked in | EGM96 lattice, `geoidOffset(lat, lon)`, and `mslToEllipsoid(lat, lon, msl)` |
 | `data/iers/finals2000A-YYYY-MM-DD.txt` | Official fixed-width records, checked in by an explicit update | Sole input to IERS generation |
-| `tools/iers.py` | Handwritten generator and updater | Validate the snapshot, render Monkey C, or explicitly fetch replacement data |
+| `tools/iers.py` | Handwritten generator and updater | Validate the snapshot, render Monkey C, refresh coverage documentation, or explicitly fetch replacement data |
 | `source/IersEopData.mc` | Generated and checked in | EOP table and `eop(mjd)`, `firstDate()`, `lastDate()` |
 
 There is no `EarthData` facade. Callers use `GeoidData` for height conversion
@@ -134,9 +134,9 @@ connection and total-transfer timeouts. Generation and checking do not invoke
 curl.
 
 A download, parse, validation, rendering, or staging failure leaves the installed
-snapshot and module untouched. Installation stages both outputs and rollback
-copies beside their destinations before replacing either. The old dated
-snapshot is removed only after both new outputs are installed. An installation
+snapshot and module untouched. Installation stages all generated outputs and rollback
+copies beside their destinations before replacing any. The old dated
+snapshot is removed only after all new outputs are installed. An installation
 failure restores replaced files and removes newly created files. If filesystem
 errors also prevent rollback, the updater reports the recovery paths and
 retains the relevant backup files. Each replacement is atomic, but the pair
@@ -151,15 +151,16 @@ interrupt installation deliberately.
    `uv run --script tools/iers.py update` with `monkeyc-fmt` available on
    `PATH`.
 3. Review the new snapshot's date, 368-day coverage, provenance, and EOP changes,
-   together with the generated module. A successful update leaves exactly one
-   dated snapshot. Do not hand-edit the generated module to fix a failed check.
+   together with the generated module and updated coverage fields in README and
+   this document. A successful update leaves exactly one dated snapshot. Do not
+   hand-edit the generated module to fix a failed check.
 4. Run `make check-generated` and `make lint`, then the appropriate local build
    and behavioral checks for the change. If only generator logic changed, use
    `make generate-iers` against the existing snapshot instead of refreshing data.
-5. Update README coverage dates and MJD bounds when the data window changes.
-   Commit the snapshot replacement and generated module together, along with
-   any generator changes needed to reproduce them.
+5. Commit the snapshot replacement, generated module, and coverage documentation
+   together, along with any generator changes needed to reproduce them.
 
-To undo a completed refresh, restore the prior snapshot and generated module
-together from version control, then run `make check-generated`. Restoring the
-previous generator as well is necessary when its output contract changed.
+To undo a completed refresh, restore the prior snapshot, generated module, and
+coverage documentation together from version control, then run
+`make check-generated`. Restoring the previous generator as well is necessary
+when its output contract changed.

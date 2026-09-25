@@ -76,7 +76,7 @@ jobs:
         id: changes
         shell: bash
         run: |
-          if git diff --quiet -- data/iers source/IersEopData.mc; then
+          if git diff --quiet -- data/iers source/IersEopData.mc README.md docs/earth-data-generation.md; then
             echo 'changed=false' >> "$GITHUB_OUTPUT"
           else
             echo 'changed=true' >> "$GITHUB_OUTPUT"
@@ -92,7 +92,7 @@ jobs:
           git switch -c "$UPDATE_BRANCH"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add data/iers source/IersEopData.mc
+          git add data/iers source/IersEopData.mc README.md docs/earth-data-generation.md
           git commit -m 'chore(data): update IERS EOP data'
           git push --set-upstream origin "$UPDATE_BRANCH"
           echo "branch=$UPDATE_BRANCH" >> "$GITHUB_OUTPUT"

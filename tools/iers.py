@@ -19,6 +19,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "iers"
 OUTPUT = ROOT / "source" / "IersEopData.mc"
+DOCUMENTS = (ROOT / "README.md", ROOT / "docs" / "earth-data-generation.md")
 URL = "https://datacenter.iers.org/data/9/finals2000A.all"
 DAYS = 368
 MAX_START_AGE_DAYS = 7
@@ -26,6 +27,12 @@ MIN_FUTURE_DAYS = 330
 EPOCH = date(1858, 11, 17)
 NAME = re.compile(r"finals2000A-(\d{4}-\d{2}-\d{2})\.txt")
 NUMBER = re.compile(r"[+-]?\d+\.\d+")
+COVERAGE_README = re.compile(
+    r"\*\*\d+–\d+\*\* \(\*\*\d{4}-\d{2}-\d{2}–\d{4}-\d{2}-\d{2}\*\*\)"
+)
+COVERAGE_DOC = re.compile(
+    r"\*\*\d+–\d+\*\*, \*\*\d{4}-\d{2}-\d{2}–\d{4}-\d{2}-\d{2}\*\*"
+)
 
 
 @dataclass(frozen=True)
@@ -117,6 +124,22 @@ def check_freshness(path: Path, today: date) -> tuple[date, date]:
             f"{MIN_FUTURE_DAYS} future days are required"
         )
     return start, end
+
+
+def render_document(path: Path, start: date, end: date) -> bytes:
+    first = (start - EPOCH).days
+    last = (end - EPOCH).days
+    if path.name == "README.md":
+        pattern = COVERAGE_README
+        replacement = f"**{first}–{last}** (**{start}–{end}**)"
+    else:
+        pattern = COVERAGE_DOC
+        replacement = f"**{first}–{last}**, **{start}–{end}**"
+    content = path.read_text(encoding="utf-8")
+    updated, count = pattern.subn(replacement, content)
+    if count != 1:
+        raise ValueError(f"Expected one coverage field in {path.relative_to(ROOT)}, found {count}")
+    return updated.encode("utf-8")
 
 
 def render(path: Path, rows: list[Row]) -> bytes:
@@ -264,8 +287,9 @@ def update() -> None:
     path = DATA / f"finals2000A-{start.isoformat()}.txt"
     rows = parse_snapshot(path, content)
     generated = render(path, rows)
-    install({path: content, OUTPUT: generated}, old if old != path else None)
     end = EPOCH + timedelta(days=rows[-1].mjd)
+    documents = {document: render_document(document, start, end) for document in DOCUMENTS}
+    install({path: content, OUTPUT: generated, **documents}, old if old != path else None)
     print(
         f"Updated {path.relative_to(ROOT)} and {OUTPUT.relative_to(ROOT)} "
         f"(coverage {start}–{end}, {DAYS} daily rows)"
