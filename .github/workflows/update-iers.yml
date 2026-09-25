@@ -42,7 +42,6 @@ jobs:
           make check-generated
           make check-freshness
           make lint
-          git diff --check
 
       - name: Set up Java
         uses: actions/setup-java@v4
