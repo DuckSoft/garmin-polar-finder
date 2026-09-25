@@ -10,7 +10,7 @@ class PolarFinderStateController {
     var rowHalfHeight = 14;
     var editing = false;
     var helpPage = 0;
-
+    
     function resetNavigation() {
         focus = 0;
         scroll = 0;
@@ -18,12 +18,12 @@ class PolarFinderStateController {
         magnified = false;
         editing = false;
     }
-
+    
     function enter(nextScreen) {
         screen = nextScreen;
         resetNavigation();
     }
-
+    
     function setFocus(nextFocus) {
         focus = nextFocus;
     }

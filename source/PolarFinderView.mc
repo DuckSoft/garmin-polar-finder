@@ -190,7 +190,7 @@ class PolarFinderView extends WatchUi.View {
     function cancelCalculationFromService() {
         _cancelRequested = true;
     }
-
+    
     function stopTimers() {
         if (_timer != null) {
             _timer.stop();
@@ -371,7 +371,7 @@ class PolarFinderView extends WatchUi.View {
     function onUpdate(dc) {
         _renderer.render(self, dc);
     }
-
+    
     function reticleText() {
         if (_model.reticleType == RETICLE_IOPTRON) {
             return s(Rez.Strings.Ioptron);
@@ -627,7 +627,11 @@ class PolarFinderView extends WatchUi.View {
             s(
                 _state.screen == EDIT_LAT
                     ? Rez.Strings.EditLatitude
-                    : (_state.screen == EDIT_LON ? Rez.Strings.EditLongitude : Rez.Strings.EditElevation)
+                    : (
+                        _state.screen == EDIT_LON
+                            ? Rez.Strings.EditLongitude
+                            : Rez.Strings.EditElevation
+                    )
             )
         );
         for (var i = 0; i <= _digits.size(); i++) {
@@ -1696,7 +1700,10 @@ class PolarFinderView extends WatchUi.View {
         if (_state.focus == 0) {
             _model.pressureMode = (_model.pressureMode + 1) % 3;
             _state.scroll = 0;
-        } else if ((_state.focus == 1 && _model.pressureMode == 1) || _state.focus == 2 || _state.focus == 3) {
+        } else if (
+            (_state.focus == 1 && _model.pressureMode == 1) || _state.focus == 2
+                || _state.focus == 3
+        ) {
             _state.editing = !_state.editing;
         } else if (_state.focus == 5) {
             _model.calculationAlert = !_model.calculationAlert;
@@ -1908,7 +1915,7 @@ class PolarFinderView extends WatchUi.View {
     function beginCalculation(restarting) {
         _calculation.begin(self, restarting);
     }
-
+    
     function beginCalculationImpl(restarting) {
         if (!_model.confirmed || !_model.hasLocation()) {
             _calculation.completed();

@@ -28,6 +28,13 @@ This repository contains a Garmin Connect IQ watch app targeting the Forerunner 
 - Whenever code, resources, or the manifest change user-visible behavior, controls, screens, settings, supported devices, permissions, warnings, errors, or limitations, update `docs/user-manual.md` in the same change. Keep it written for app users rather than developers, and preserve its prominent link near the start of `README.md`.
 - Do not duplicate changing runtime data, such as the bundled Earth-data validity dates, in the user manual. Direct users to the app interface that owns and displays those values so the information remains single-sourced.
 
+## Formatting and validation workflow
+
+- `monkeyc-fmt` is a required tool, not an optional SDK component. Install the exact pinned version before editing or checking Monkey C: `cargo install --locked --version 0.1.1 monkeyc-fmt`.
+- Run `make format` (or `monkeyc-fmt --write` on the changed `.mc` files) before committing, then run `make lint`.
+- Do not remove whitespace from blank lines after `monkeyc-fmt`; the formatter intentionally preserves indentation on blank lines, and stripping it makes an otherwise formatted file fail the formatter check.
+- `make lint` does not require a Connect IQ SDK or `current-sdk.cfg`; an SDK configuration warning from Make is harmless for lint. SDK-dependent commands (`build`, `test`, `package`, and simulator commands) do require a valid `SDK_HOME`.
+
 ## Verification
 
 Do not set `JAVA_TOOL_OPTIONS` when running any `make` command.
