@@ -120,6 +120,18 @@ function regressionRunCase(fixture, logger) {
             logger.debug(
                 "independent oracle propagation mismatch: " + fixture[:name] + " t="
                     + expectedStep[0]
+                    + " aob="
+                    + regressionAngleError(actualStep[:aob], expectedStep[1])
+                    + " zob="
+                    + regressionAbsoluteError(actualStep[:zob], expectedStep[2])
+                    + " x="
+                    + regressionAbsoluteError(actualStep[:x], expectedStep[3])
+                    + " y="
+                    + regressionAbsoluteError(actualStep[:y], expectedStep[4])
+                    + " ha="
+                    + regressionAngleError(actualStep[:hourAngle], expectedStep[5])
+                    + " pd="
+                    + regressionAbsoluteError(actualStep[:poleDistance], expectedStep[6])
             );
             return false;
         }
