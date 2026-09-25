@@ -4,13 +4,19 @@
 dispatch. Feature-branch pushes do not trigger a second run alongside their PR;
 branches without a PR can be checked through manual dispatch.
 `.github/workflows/release.yml` runs on pushes of tags matching `v*`.
-Both workflows first run `make check-generated` and `make lint` without a signing
-secret. The lint stage checks all tracked or untracked, nonignored Monkey C files
+`.github/workflows/update-iers.yml` runs on the first day of each month and can
+also be dispatched manually. It refreshes IERS data, validates the generated
+module and freshness, runs the simulator profiles, and opens a pull request only
+after all checks pass.
+The build and release workflows first run `make check-generated` and
+`make lint` without a signing secret. The build workflow also runs
+`make check-freshness`; release validation remains reproducible for historical
+tags. The lint stage checks all tracked or untracked, nonignored Monkey C files
 with the pinned `monkeyc-fmt` **0.1.1**, as well as project XML. Each validation
 or test job installs the formatter once through Cargo.
-CI never runs the IERS updater: it verifies the committed snapshot and generated
-module, so passing a build cannot silently change the data window. Installing
-actions, uv,
+Build and release jobs do not run the IERS updater: they verify the committed
+snapshot and generated module, so passing a build cannot silently change the data
+window. Installing actions, uv,
 the Rust toolchain, formatting packages, and build tools may use the network;
 this is separate from refreshing IERS reference data.
 
