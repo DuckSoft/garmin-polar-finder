@@ -106,7 +106,9 @@ function reticleMagnificationAllowed(reticleType, markerValid) {
 }
 
 class PolarFinderView extends WatchUi.View {
-    private var _magnified = false;
+    private var _state;
+    private var _renderer;
+    private var _calculation;
     static const LOCATE = 0;
     static const GPS = 1;
     static const EDIT_LAT = 2;
@@ -124,12 +126,6 @@ class PolarFinderView extends WatchUi.View {
     static const RETICLE = 14;
     private var _profile;
     private var _model;
-    private var _screen = LOCATE;
-    private var _focus = 0;
-    private var _scroll = 0;
-    private var _rowTop = 116;
-    private var _rowHalfHeight = 14;
-    private var _editing = false;
     private var _atmosphereReturn = LOCATE;
     private var _timer;
     private var _gpsStarted = 0;
@@ -167,7 +163,6 @@ class PolarFinderView extends WatchUi.View {
     private var _eop = null;
     private var _ellipsoidHeight = null;
     private var _geoidOffset = null;
-    private var _helpPage = 0;
     private var _reticleOriginal = RETICLE_GENERIC;
     private var _markerPosition = [0.0, 0.0];
     private var _detailHeights = [];
@@ -180,6 +175,9 @@ class PolarFinderView extends WatchUi.View {
     function initialize(model) {
         View.initialize();
         _model = model;
+        _state = new PolarFinderStateController();
+        _renderer = new PolarFinderRenderer();
+        _calculation = new PolarFinderCalculationService();
         _timer = new Timer.Timer();
     }
     function onLayout(dc) {
@@ -189,6 +187,10 @@ class PolarFinderView extends WatchUi.View {
             dc.getFontHeight(Graphics.FONT_XTINY)
         );
     }
+    function cancelCalculationFromService() {
+        _cancelRequested = true;
+    }
+    
     function stopTimers() {
         if (_timer != null) {
             _timer.stop();
@@ -203,16 +205,16 @@ class PolarFinderView extends WatchUi.View {
             Astrometry.cancel(_astroState);
             _astroState = null;
         }
-        if (_screen == CALC) {
+        if (_state.screen == CALC) {
             _restart = true;
-        } else if (_screen == DISPLAY) {
+        } else if (_state.screen == DISPLAY) {
             _result = null;
         }
     }
     function onAppActive() {
-        if (_screen == CALC && _restart) {
+        if (_state.screen == CALC && _restart) {
             beginCalculation(true);
-        } else if (_screen == DISPLAY) {
+        } else if (_state.screen == DISPLAY) {
             beginCalculation(true);
         }
     }
@@ -257,49 +259,49 @@ class PolarFinderView extends WatchUi.View {
         center(dc, _profile.footerY, Graphics.FONT_XTINY, text, Graphics.COLOR_DK_GRAY);
     }
     function ensureFocusVisible() {
-        if (_rowHalfHeight > 0) {
-            _scroll = focusVisibleScroll(
-                _rowTop,
+        if (_state.rowHalfHeight > 0) {
+            _state.scroll = focusVisibleScroll(
+                _state.rowTop,
                 _profile.rowPitch,
-                _rowHalfHeight,
+                _state.rowHalfHeight,
                 _profile.drawableTop,
                 _profile.drawableBottom,
-                _focus,
-                _scroll
+                _state.focus,
+                _state.scroll
             );
         }
     }
     function ensureAtmosphereFocusVisible() {
-        if (_rowHalfHeight > 0) {
-            var visibleFocus = atmosphereVisibleIndex(_focus, _model.pressureMode == 1);
-            _scroll = focusVisibleScroll(
-                _rowTop,
+        if (_state.rowHalfHeight > 0) {
+            var visibleFocus = atmosphereVisibleIndex(_state.focus, _model.pressureMode == 1);
+            _state.scroll = focusVisibleScroll(
+                _state.rowTop,
                 _profile.rowPitch,
-                _rowHalfHeight,
+                _state.rowHalfHeight,
                 _profile.drawableTop,
                 _profile.drawableBottom,
                 visibleFocus,
-                _scroll
+                _state.scroll
             );
         }
     }
     function row(dc, index, label, value) {
-        rowAt(dc, index, _focus, label, value);
+        rowAt(dc, index, _state.focus, label, value);
     }
     function rowAt(dc, index, focusIndex, label, value) {
         var font = Graphics.FONT_XTINY;
         var fh = dc.getFontHeight(font);
         var rh = fh + 8;
         if (index == 0) {
-            _rowHalfHeight = rh / 2;
-            _rowTop = _profile.rowTop(_rowTop, _rowHalfHeight);
-            if (_screen == ATMOS) {
+            _state.rowHalfHeight = rh / 2;
+            _state.rowTop = _profile.rowTop(_state.rowTop, _state.rowHalfHeight);
+            if (_state.screen == ATMOS) {
                 ensureAtmosphereFocusVisible();
             } else {
                 ensureFocusVisible();
             }
         }
-        var cy = _rowTop + (index - _scroll) * _profile.rowPitch;
+        var cy = _state.rowTop + (index - _state.scroll) * _profile.rowPitch;
         if (cy - rh / 2 < _profile.drawableTop || cy + rh / 2 > _profile.drawableBottom) {
             return;
         }
@@ -322,7 +324,7 @@ class PolarFinderView extends WatchUi.View {
                 focusHeight,
                 8
             );
-            if (_editing) {
+            if (_state.editing) {
                 dc.fillRectangle(_profile.rowLeft + 7, cy - 4, 8, 8);
             }
         }
@@ -334,36 +336,40 @@ class PolarFinderView extends WatchUi.View {
             dc.drawText(_profile.valueX, cy, font, value, Graphics.TEXT_JUSTIFY_RIGHT | vjust);
         }
     }
-    function onUpdate(dc) {
+    function renderScreen(dc) {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
-        if (_screen == LOCATE) {
+        if (_state.screen == LOCATE) {
             drawLocate(dc);
-        } else if (_screen == GPS) {
+        } else if (_state.screen == GPS) {
             drawGps(dc);
         } else if (isEditor()) {
             drawEditor(dc);
-        } else if (_screen == ATMOS) {
+        } else if (_state.screen == ATMOS) {
             drawAtmos(dc);
-        } else if (_screen == RETICLE) {
+        } else if (_state.screen == RETICLE) {
             drawReticleChoice(dc);
-        } else if (_screen == CALC) {
+        } else if (_state.screen == CALC) {
             drawCalc(dc);
-        } else if (_screen == DISPLAY) {
+        } else if (_state.screen == DISPLAY) {
             drawDisplay(dc);
-        } else if (_screen == ACTIONS) {
+        } else if (_state.screen == ACTIONS) {
             drawActions(dc);
-        } else if (_screen == DETAILS) {
+        } else if (_state.screen == DETAILS) {
             drawDetails(dc);
-        } else if (_screen == HELP) {
+        } else if (_state.screen == HELP) {
             drawHelp(dc);
-        } else if (_screen == GPS_WARNING) {
+        } else if (_state.screen == GPS_WARNING) {
             drawGpsWarning(dc);
-        } else if (_screen == DISCARD) {
+        } else if (_state.screen == DISCARD) {
             drawDiscard(dc);
-        } else if (_screen == CALC_ERROR) {
+        } else if (_state.screen == CALC_ERROR) {
             drawError(dc);
         }
+    }
+    
+    function onUpdate(dc) {
+        _renderer.render(self, dc);
     }
     
     function reticleText() {
@@ -379,7 +385,7 @@ class PolarFinderView extends WatchUi.View {
         var first = _model.firstUse && !_model.hasLocation();
         var titleHeight = dc.getFontHeight(Graphics.FONT_SMALL);
         var hintTop = _profile.titleY + titleHeight + 2;
-        _rowTop = 116;
+        _state.rowTop = 116;
         row(dc, 0, s(Rez.Strings.Latitude), coord(_model.latitude, true));
         row(dc, 1, s(Rez.Strings.Longitude), coord(_model.longitude, false));
         row(
@@ -423,7 +429,7 @@ class PolarFinderView extends WatchUi.View {
         }
     }
     function drawReticleChoice(dc) {
-        _rowTop = 170;
+        _state.rowTop = 170;
         title(dc, s(Rez.Strings.Reticle));
         row(dc, 0, s(Rez.Strings.Generic), "");
         row(dc, 1, s(Rez.Strings.Ioptron), "");
@@ -466,7 +472,7 @@ class PolarFinderView extends WatchUi.View {
     }
     
     function drawGps(dc) {
-        _rowTop = 276;
+        _state.rowTop = 276;
         title(dc, s(Rez.Strings.GpsTitle));
         var elapsed = Time.now().value() - _gpsStarted;
         var state = _gpsError != null
@@ -542,13 +548,13 @@ class PolarFinderView extends WatchUi.View {
     }
     
     function isEditor() {
-        return _screen == EDIT_LAT || _screen == EDIT_LON || _screen == EDIT_ELEV;
+        return _state.screen == EDIT_LAT || _state.screen == EDIT_LON || _state.screen == EDIT_ELEV;
     }
     function beginEditor(screen) {
-        _screen = screen;
-        _focus = 0;
-        _scroll = 0;
-        _editing = false;
+        _state.screen = screen;
+        _state.focus = 0;
+        _state.scroll = 0;
+        _state.editing = false;
         _invalid = false;
         _editOriginal = screen == EDIT_LAT
             ? _model.latitude
@@ -578,13 +584,13 @@ class PolarFinderView extends WatchUi.View {
     }
     function digitLabel(i) {
         if (i == 0) {
-            return s(_screen == EDIT_ELEV ? Rez.Strings.Sign : Rez.Strings.Hemisphere);
+            return s(_state.screen == EDIT_ELEV ? Rez.Strings.Sign : Rez.Strings.Hemisphere);
         }
-        if (_screen == EDIT_ELEV) {
+        if (_state.screen == EDIT_ELEV) {
             var p = 4 - (i - 1);
             return p == 0 ? "m" : "m x " + Math.pow(10, p).format("%d");
         }
-        var degreeDigits = _screen == EDIT_LAT ? 2 : 3;
+        var degreeDigits = _state.screen == EDIT_LAT ? 2 : 3;
         if (i <= degreeDigits) {
             return "° x " + Math.pow(10, degreeDigits - i).format("%d");
         }
@@ -604,10 +610,10 @@ class PolarFinderView extends WatchUi.View {
     }
     function editorValue(i) {
         if (i == 0) {
-            if (_screen == EDIT_LAT) {
+            if (_state.screen == EDIT_LAT) {
                 return _negative ? "S" : "N";
             }
-            if (_screen == EDIT_LON) {
+            if (_state.screen == EDIT_LON) {
                 return _negative ? "W" : "E";
             }
             return _negative ? "-" : "+";
@@ -615,13 +621,17 @@ class PolarFinderView extends WatchUi.View {
         return _digits[i - 1].toString();
     }
     function drawEditor(dc) {
-        _rowTop = 82;
+        _state.rowTop = 82;
         title(
             dc,
             s(
-                _screen == EDIT_LAT
+                _state.screen == EDIT_LAT
                     ? Rez.Strings.EditLatitude
-                    : (_screen == EDIT_LON ? Rez.Strings.EditLongitude : Rez.Strings.EditElevation)
+                    : (
+                        _state.screen == EDIT_LON
+                            ? Rez.Strings.EditLongitude
+                            : Rez.Strings.EditElevation
+                    )
             )
         );
         for (var i = 0; i <= _digits.size(); i++) {
@@ -639,17 +649,17 @@ class PolarFinderView extends WatchUi.View {
                 _profile.contentWidth
             );
         }
-        footer(dc, _editing ? s(Rez.Strings.Changing) : s(Rez.Strings.SelectDigit));
+        footer(dc, _state.editing ? s(Rez.Strings.Changing) : s(Rez.Strings.SelectDigit));
     }
     function changeDigit(delta) {
-        if (_focus == 0) {
+        if (_state.focus == 0) {
             _negative = !_negative;
             return;
         }
-        var idx = _focus - 1;
+        var idx = _state.focus - 1;
         var max = 9;
-        if (_model.formatDms && _screen != EDIT_ELEV) {
-            var dd = _screen == EDIT_LAT ? 2 : 3;
+        if (_model.formatDms && _state.screen != EDIT_ELEV) {
+            var dd = _state.screen == EDIT_LAT ? 2 : 3;
             var part = idx + 1 - dd;
             if (part == 1 || part == 3) {
                 max = 5;
@@ -671,7 +681,7 @@ class PolarFinderView extends WatchUi.View {
             total = total * 10 + _digits[i];
         }
         var v;
-        if (_screen == EDIT_ELEV) {
+        if (_state.screen == EDIT_ELEV) {
             v = total;
         } else if (_model.formatDms) {
             var d = (total / 10000).toNumber();
@@ -686,14 +696,14 @@ class PolarFinderView extends WatchUi.View {
     function commitEditor() {
         var v = editorNumber();
         var av = v.abs();
-        var max = _screen == EDIT_LAT ? 90.0 : (_screen == EDIT_LON ? 180.0 : 99999.0);
+        var max = _state.screen == EDIT_LAT ? 90.0 : (_state.screen == EDIT_LON ? 180.0 : 99999.0);
         if (av > max) {
             _invalid = true;
-            _focus = 1;
-            _scroll = 0;
+            _state.focus = 1;
+            _state.scroll = 0;
             return;
         }
-        if (_screen != EDIT_ELEV && _model.formatDms) {
+        if (_state.screen != EDIT_ELEV && _model.formatDms) {
             var total = 0;
             for (var i = 0; i < _digits.size(); i++) {
                 total = total * 10 + _digits[i];
@@ -703,30 +713,30 @@ class PolarFinderView extends WatchUi.View {
             var sec = total % 100;
             if (m > 59) {
                 _invalid = true;
-                _focus = _digits.size() - 3;
+                _state.focus = _digits.size() - 3;
                 return;
             }
             if (sec > 59) {
                 _invalid = true;
-                _focus = _digits.size() - 1;
+                _state.focus = _digits.size() - 1;
                 return;
             }
             if (d == max && (m != 0 || sec != 0)) {
                 _invalid = true;
-                _focus = _digits.size() - 3;
+                _state.focus = _digits.size() - 3;
                 return;
             }
-        } else if (_screen != EDIT_ELEV && av == max) {
+        } else if (_state.screen != EDIT_ELEV && av == max) {
             var whole = av.toNumber();
             if (av - whole > 0) {
                 _invalid = true;
-                _focus = (_screen == EDIT_LAT ? 3 : 4);
+                _state.focus = (_state.screen == EDIT_LAT ? 3 : 4);
                 return;
             }
         }
-        if (_screen == EDIT_LAT) {
+        if (_state.screen == EDIT_LAT) {
             _model.latitude = v;
-        } else if (_screen == EDIT_LON) {
+        } else if (_state.screen == EDIT_LON) {
             _model.longitude = v;
         } else {
             _model.elevation = v;
@@ -741,9 +751,9 @@ class PolarFinderView extends WatchUi.View {
     
     function drawAtmos(dc) {
         var manual = _model.pressureMode == 1;
-        _rowTop = centeredMenuRowTop(_profile, manual ? 7 : 6);
+        _state.rowTop = centeredMenuRowTop(_profile, manual ? 7 : 6);
         title(dc, s(Rez.Strings.Atmosphere));
-        var focusIndex = atmosphereVisibleIndex(_focus, manual);
+        var focusIndex = atmosphereVisibleIndex(_state.focus, manual);
         var mode = _model.pressureMode == 0
             ? s(Rez.Strings.Automatic)
             : (manual ? s(Rez.Strings.PressureManual) : s(Rez.Strings.RefractionOff));
@@ -821,7 +831,7 @@ class PolarFinderView extends WatchUi.View {
         footer(dc, s(Rez.Strings.CancelHint));
     }
     function drawError(dc) {
-        _rowTop = 250;
+        _state.rowTop = 250;
         title(dc, s(Rez.Strings.CalculationError));
         drawWrapped(dc, _errorText, _profile.y(85));
         row(dc, 0, s(Rez.Strings.TryAgain), "");
@@ -940,10 +950,10 @@ class PolarFinderView extends WatchUi.View {
             maxPoleDistance
         );
         if (!reticleMagnificationAllowed(_model.reticleType, markerValid)) {
-            _magnified = false;
+            _state.magnified = false;
         }
         var red = Graphics.COLOR_RED;
-        if (_magnified) {
+        if (_state.magnified) {
             var mx = _markerPosition[0].toNumber();
             var my = _markerPosition[1].toNumber();
             var artCx = magnifiedReticleCoordinate(cx, mx, cx);
@@ -970,7 +980,7 @@ class PolarFinderView extends WatchUi.View {
                 _markerPosition[1].toNumber()
             );
         }
-        if (!_magnified) {
+        if (!_state.magnified) {
             drawIoptronReadout(dc, cy - _profile.y(37), _reticleClock, red);
             drawIoptronReadout(dc, cy + _profile.y(37), _reticleOffset, red);
             if (_result[:warning] != null) {
@@ -1004,7 +1014,7 @@ class PolarFinderView extends WatchUi.View {
                 drawIoptronTick(dc, angle, 60.0, 70.0, k, r70, cx, cy);
             }
         }
-        if (outerScale && !_magnified) {
+        if (outerScale && !_state.magnified) {
             var r52 = ioptronRingRadius(52.0, r70);
             var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
             for (var n = 1; n <= 12; n++) {
@@ -1026,7 +1036,7 @@ class PolarFinderView extends WatchUi.View {
             }
         }
         if (markerValid) {
-            if (_magnified) {
+            if (_state.magnified) {
                 dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
                 dc.setPenWidth(1);
                 dc.drawLine(0, markerY.toNumber(), _profile.width - 1, markerY.toNumber());
@@ -1166,7 +1176,7 @@ class PolarFinderView extends WatchUi.View {
         );
     }
     function drawActions(dc) {
-        _rowTop = 104;
+        _state.rowTop = 104;
         title(dc, s(Rez.Strings.Actions));
         row(dc, 0, s(Rez.Strings.Recalculate), "");
         row(dc, 1, s(Rez.Strings.Location), "");
@@ -1339,15 +1349,15 @@ class PolarFinderView extends WatchUi.View {
             lines.add(wrapped);
             _detailHeights.add(detailHeight(wrapped.size(), fh));
         }
-        _scroll = variableHeightVisibleStart(
+        _state.scroll = variableHeightVisibleStart(
             _detailHeights,
-            _focus,
-            _scroll,
+            _state.focus,
+            _state.scroll,
             _profile.drawableBottom - _profile.drawableTop
         );
         _detailTops = [];
         var y = _profile.drawableTop;
-        for (var j = _scroll; j < r.size() && y < _profile.drawableBottom; j++) {
+        for (var j = _state.scroll; j < r.size() && y < _profile.drawableBottom; j++) {
             var height = _detailHeights[j];
             if (y + height > _profile.drawableBottom) {
                 break;
@@ -1357,7 +1367,7 @@ class PolarFinderView extends WatchUi.View {
             dc.drawText(_profile.labelX, y + 8, font, r[j][0], Graphics.TEXT_JUSTIFY_LEFT);
             var valueTop = y + 8 + fh + 4;
             var valueHeight = lines[j].size() * pitch;
-            if (j == _focus) {
+            if (j == _state.focus) {
                 dc.setColor(0x330000, Graphics.COLOR_TRANSPARENT);
                 dc.fillRoundedRectangle(
                     _profile.labelX,
@@ -1414,7 +1424,7 @@ class PolarFinderView extends WatchUi.View {
         var linePitch = dc.getFontHeight(Graphics.FONT_XTINY) + _profile.y(30);
         drawWrappedWidth(
             dc,
-            s(pages[_helpPage]),
+            s(pages[_state.helpPage]),
             _profile.y(110),
             _profile.drawableBottom,
             _profile.detailWidth,
@@ -1423,7 +1433,7 @@ class PolarFinderView extends WatchUi.View {
         centerFit(
             dc,
             _profile.footerY,
-            s(Rez.Strings.Page) + " " + (_helpPage + 1) + "/" + pages.size(),
+            s(Rez.Strings.Page) + " " + (_state.helpPage + 1) + "/" + pages.size(),
             Graphics.COLOR_LT_GRAY,
             Graphics.FONT_XTINY,
             Graphics.FONT_XTINY,
@@ -1466,7 +1476,7 @@ class PolarFinderView extends WatchUi.View {
         }
     }
     function drawGpsWarning(dc) {
-        _rowTop = 244;
+        _state.rowTop = 244;
         title(dc, s(Rez.Strings.Acknowledge));
         centerFit(
             dc,
@@ -1481,83 +1491,83 @@ class PolarFinderView extends WatchUi.View {
         row(dc, 1, s(Rez.Strings.Cancel), "");
     }
     function drawDiscard(dc) {
-        _rowTop = 244;
+        _state.rowTop = 244;
         title(dc, s(Rez.Strings.DiscardTitle));
         row(dc, 0, s(Rez.Strings.Discard), "");
         row(dc, 1, s(Rez.Strings.KeepEditing), "");
     }
     
     function maxFocus() {
-        if (_screen == LOCATE) {
+        if (_state.screen == LOCATE) {
             return 8;
         }
-        if (_screen == GPS) {
+        if (_state.screen == GPS) {
             return 2;
         }
         if (isEditor()) {
             return _digits.size() + 1;
         }
-        if (_screen == ATMOS) {
+        if (_state.screen == ATMOS) {
             return 6;
         }
-        if (_screen == RETICLE) {
+        if (_state.screen == RETICLE) {
             return 2;
         }
-        if (_screen == ACTIONS) {
+        if (_state.screen == ACTIONS) {
             return 3;
         }
-        if (_screen == GPS_WARNING || _screen == DISCARD) {
+        if (_state.screen == GPS_WARNING || _state.screen == DISCARD) {
             return 1;
         }
-        if (_screen == CALC_ERROR) {
+        if (_state.screen == CALC_ERROR) {
             return 2;
         }
-        if (_screen == DETAILS) {
+        if (_state.screen == DETAILS) {
             return detailsRows().size() - 1
                 + ((_result != null && _result[:warning] != null) ? 1 : 0);
         }
         return 0;
     }
     function navigate(delta) {
-        if (isEditor() && _editing) {
+        if (isEditor() && _state.editing) {
             changeDigit(delta);
             WatchUi.requestUpdate();
             return;
         }
-        if (_screen == ATMOS && _editing) {
+        if (_state.screen == ATMOS && _state.editing) {
             changeAtmos(delta);
             WatchUi.requestUpdate();
             return;
         }
-        if (_screen == HELP) {
-            _helpPage += delta;
-            if (_helpPage < 0) {
-                _helpPage = 7;
+        if (_state.screen == HELP) {
+            _state.helpPage += delta;
+            if (_state.helpPage < 0) {
+                _state.helpPage = 7;
             }
-            if (_helpPage > 7) {
-                _helpPage = 0;
+            if (_state.helpPage > 7) {
+                _state.helpPage = 0;
             }
             WatchUi.requestUpdate();
             return;
         }
         var max = maxFocus();
-        var wrapped = wrapMenuFocus(_focus + delta, max, _scroll);
-        _focus = wrapped[0];
-        _scroll = wrapped[1];
-        if (_screen == DETAILS) {
-            if (_focus == 0) {
-                _scroll = 0;
-            } else if (_focus == max && delta < 0) {
-                _scroll = max;
+        var wrapped = wrapMenuFocus(_state.focus + delta, max, _state.scroll);
+        _state.focus = wrapped[0];
+        _state.scroll = wrapped[1];
+        if (_state.screen == DETAILS) {
+            if (_state.focus == 0) {
+                _state.scroll = 0;
+            } else if (_state.focus == max && delta < 0) {
+                _state.scroll = max;
             }
             WatchUi.requestUpdate();
             return;
         }
-        if (_screen == LOCATE) {
-            _focus = locateVisibleFocus(_focus, delta, _model.hasLocation());
+        if (_state.screen == LOCATE) {
+            _state.focus = locateVisibleFocus(_state.focus, delta, _model.hasLocation());
         }
-        if (_screen == ATMOS) {
-            _focus = atmosphereVisibleFocus(_focus, delta, _model.pressureMode == 1);
+        if (_state.screen == ATMOS) {
+            _state.focus = atmosphereVisibleFocus(_state.focus, delta, _model.pressureMode == 1);
             ensureAtmosphereFocusVisible();
         } else {
             ensureFocusVisible();
@@ -1565,16 +1575,12 @@ class PolarFinderView extends WatchUi.View {
         WatchUi.requestUpdate();
     }
     function open(screen) {
-        _screen = screen;
-        _focus = 0;
-        _scroll = 0;
-        _rowHalfHeight = 0;
-        _magnified = false;
+        _state.enter(screen);
         if (screen == LOCATE) {
-            _rowHalfHeight = 14;
-            _rowTop = _profile.rowTop(116, _rowHalfHeight);
+            _state.rowHalfHeight = 14;
+            _state.rowTop = _profile.rowTop(116, _state.rowHalfHeight);
         }
-        _editing = false;
+        _state.editing = false;
         WatchUi.requestUpdate();
     }
     function openAtmosphere(origin) {
@@ -1585,73 +1591,73 @@ class PolarFinderView extends WatchUi.View {
         _model.savePreferences();
         var target = _atmosphereReturn;
         open(target);
-        _focus = target == ACTIONS ? 2 : 6;
+        _state.focus = target == ACTIONS ? 2 : 6;
         ensureFocusVisible();
     }
     function handleMagnificationKey(key) {
-        if (_screen != DISPLAY || _model.reticleType == RETICLE_GENERIC) {
+        if (_state.screen != DISPLAY || _model.reticleType == RETICLE_GENERIC) {
             return false;
         }
-        var next = reticleMagnificationEndpoint(_magnified, key);
-        if (next != _magnified) {
-            _magnified = next;
+        var next = reticleMagnificationEndpoint(_state.magnified, key);
+        if (next != _state.magnified) {
+            _state.magnified = next;
             WatchUi.requestUpdate();
         }
         return true;
     }
     function select() {
-        if (_screen == LOCATE) {
+        if (_state.screen == LOCATE) {
             selectLocate();
-        } else if (_screen == GPS) {
+        } else if (_state.screen == GPS) {
             selectGps();
         } else if (isEditor()) {
-            if (_focus == _digits.size() + 1) {
+            if (_state.focus == _digits.size() + 1) {
                 commitEditor();
             } else {
-                if (_editing) {
-                    _editing = false;
-                    _focus += 1;
+                if (_state.editing) {
+                    _state.editing = false;
+                    _state.focus += 1;
                     ensureFocusVisible();
                 } else {
-                    _editing = true;
+                    _state.editing = true;
                 }
                 WatchUi.requestUpdate();
             }
-        } else if (_screen == ATMOS) {
+        } else if (_state.screen == ATMOS) {
             selectAtmos();
-        } else if (_screen == RETICLE) {
-            _model.reticleType = _focus;
+        } else if (_state.screen == RETICLE) {
+            _model.reticleType = _state.focus;
             _model.savePreferences();
             openLocateFocus(5);
-        } else if (_screen == DISPLAY) {
+        } else if (_state.screen == DISPLAY) {
             open(ACTIONS);
-        } else if (_screen == ACTIONS) {
-            if (_focus == 0) {
+        } else if (_state.screen == ACTIONS) {
+            if (_state.focus == 0) {
                 beginCalculation(false);
-            } else if (_focus == 1) {
+            } else if (_state.focus == 1) {
                 open(LOCATE);
-            } else if (_focus == 2) {
+            } else if (_state.focus == 2) {
                 openAtmosphere(ACTIONS);
             } else {
                 open(DETAILS);
             }
-        } else if (_screen == GPS_WARNING) {
-            if (_focus == 0) {
+        } else if (_state.screen == GPS_WARNING) {
+            if (_state.focus == 0) {
                 acceptGps();
             } else {
                 open(GPS);
             }
-        } else if (_screen == DISCARD) {
-            if (_focus == 0) {
+        } else if (_state.screen == DISCARD) {
+            if (_state.focus == 0) {
                 _model.discardLocationChanges();
                 WatchUi.popView(WatchUi.SLIDE_RIGHT);
             } else {
                 open(LOCATE);
             }
-        } else if (_screen == CALC_ERROR) {
-            if (_focus == 0) {
+        } else if (_state.screen == CALC_ERROR) {
+            if (_state.focus == 0) {
                 beginCalculation(true);
-            } else if (_focus == 1) {
+            } else if (_state.focus == 1) {
                 open(LOCATE);
             } else {
                 open(DETAILS);
@@ -1659,24 +1665,24 @@ class PolarFinderView extends WatchUi.View {
         }
     }
     function selectLocate() {
-        if (_focus == 0) {
+        if (_state.focus == 0) {
             beginEditor(EDIT_LAT);
-        } else if (_focus == 1) {
+        } else if (_state.focus == 1) {
             beginEditor(EDIT_LON);
-        } else if (_focus == 2) {
+        } else if (_state.focus == 2) {
             beginEditor(EDIT_ELEV);
-        } else if (_focus == 3) {
+        } else if (_state.focus == 3) {
             beginGps();
-        } else if (_focus == 4) {
+        } else if (_state.focus == 4) {
             _model.formatDms = !_model.formatDms;
             _model.savePreferences();
-        } else if (_focus == 5) {
+        } else if (_state.focus == 5) {
             _reticleOriginal = _model.reticleType;
             open(RETICLE);
-            _focus = _model.reticleType;
-        } else if (_focus == 6) {
+            _state.focus = _model.reticleType;
+        } else if (_state.focus == 6) {
             openAtmosphere(LOCATE);
-        } else if (_focus == 7) {
+        } else if (_state.focus == 7) {
             if (!_model.hasLocation()) {
                 return;
             }
@@ -1691,21 +1697,24 @@ class PolarFinderView extends WatchUi.View {
         }
     }
     function selectAtmos() {
-        if (_focus == 0) {
+        if (_state.focus == 0) {
             _model.pressureMode = (_model.pressureMode + 1) % 3;
-            _scroll = 0;
-        } else if ((_focus == 1 && _model.pressureMode == 1) || _focus == 2 || _focus == 3) {
-            _editing = !_editing;
-        } else if (_focus == 5) {
+            _state.scroll = 0;
+        } else if (
+            (_state.focus == 1 && _model.pressureMode == 1) || _state.focus == 2
+                || _state.focus == 3
+        ) {
+            _state.editing = !_state.editing;
+        } else if (_state.focus == 5) {
             _model.calculationAlert = !_model.calculationAlert;
-        } else if (_focus == 6) {
+        } else if (_state.focus == 6) {
             closeAtmosphere();
             return;
         }
         WatchUi.requestUpdate();
     }
     function changeAtmos(delta) {
-        if (_focus == 1) {
+        if (_state.focus == 1) {
             _model.manualPressure += delta * 0.1;
             if (_model.manualPressure < 300) {
                 _model.manualPressure = 300;
@@ -1714,7 +1723,7 @@ class PolarFinderView extends WatchUi.View {
                 _model.manualPressure = 1100;
             }
             _model.manualPressureSet = true;
-        } else if (_focus == 2) {
+        } else if (_state.focus == 2) {
             _model.temperature += delta;
             if (_model.temperature < (-80)) {
                 _model.temperature = -80;
@@ -1722,7 +1731,7 @@ class PolarFinderView extends WatchUi.View {
             if (_model.temperature > 60) {
                 _model.temperature = 60;
             }
-        } else if (_focus == 3) {
+        } else if (_state.focus == 3) {
             _model.humidity += delta;
             if (_model.humidity < 0) {
                 _model.humidity = 0;
@@ -1733,26 +1742,26 @@ class PolarFinderView extends WatchUi.View {
         }
     }
     function tap(y) {
-        if (_screen == DISPLAY || _screen == HELP) {
+        if (_state.screen == DISPLAY || _state.screen == HELP) {
             select();
             return;
         }
-        if (_screen == DETAILS) {
+        if (_state.screen == DETAILS) {
             for (var d = 0; d < _detailTops.size(); d++) {
                 var detail = _detailTops[d];
                 if (y >= detail[1] && y < detail[1] + detail[2]) {
-                    _focus = detail[0];
+                    _state.focus = detail[0];
                     WatchUi.requestUpdate();
                     return;
                 }
             }
             return;
         }
-        var i = _scroll + ((y - _rowTop + 4) / _profile.rowPitch).toNumber();
+        var i = _state.scroll + ((y - _state.rowTop + 4) / _profile.rowPitch).toNumber();
         if (i < 0) {
             i = 0;
         }
-        if (_screen == ATMOS) {
+        if (_state.screen == ATMOS) {
             var manual = _model.pressureMode == 1;
             var visibleMax = atmosphereVisibleIndex(6, manual);
             if (i > visibleMax) {
@@ -1760,14 +1769,14 @@ class PolarFinderView extends WatchUi.View {
             }
             var item = atmosphereItemAt(i, manual);
             if (item == 4) {
-                _editing = false;
+                _state.editing = false;
                 WatchUi.requestUpdate();
                 return;
             }
-            if (item != _focus) {
-                _editing = false;
+            if (item != _state.focus) {
+                _state.editing = false;
             }
-            _focus = item;
+            _state.focus = item;
             ensureAtmosphereFocusVisible();
             select();
             return;
@@ -1775,53 +1784,53 @@ class PolarFinderView extends WatchUi.View {
         if (i > maxFocus()) {
             i = maxFocus();
         }
-        if (_screen == LOCATE && i == 7 && !_model.hasLocation()) {
-            var disabledCenter = _rowTop + (7 - _scroll) * _profile.rowPitch;
+        if (_state.screen == LOCATE && i == 7 && !_model.hasLocation()) {
+            var disabledCenter = _state.rowTop + (7 - _state.scroll) * _profile.rowPitch;
             i = locateVisibleFocus(i, y < disabledCenter ? -1 : 1, false);
         }
-        _focus = i;
+        _state.focus = i;
         ensureFocusVisible();
         select();
     }
     function openLocateFocus(focus) {
         open(LOCATE);
-        _focus = focus;
+        _state.focus = focus;
         ensureFocusVisible();
     }
     function touchWakeOnly() {
-        return _screen == DISPLAY;
+        return _state.screen == DISPLAY;
     }
     function back() {
         if (isEditor()) {
             open(LOCATE);
-        } else if (_screen == LOCATE) {
+        } else if (_state.screen == LOCATE) {
             if (_model.savedLatitude != null && _model.hasUnconfirmedChanges()) {
                 open(DISCARD);
             } else {
                 WatchUi.popView(WatchUi.SLIDE_RIGHT);
             }
-        } else if (_screen == GPS) {
+        } else if (_state.screen == GPS) {
             getApp().stopGps();
             stopTimers();
             open(LOCATE);
-        } else if (_screen == CALC) {
-            _cancelRequested = true;
-        } else if (_screen == DISPLAY) {
+        } else if (_state.screen == CALC) {
+            _calculation.stop(self);
+        } else if (_state.screen == DISPLAY) {
             open(LOCATE);
-        } else if (_screen == ACTIONS) {
+        } else if (_state.screen == ACTIONS) {
             beginCalculation(true);
-        } else if (_screen == DETAILS) {
+        } else if (_state.screen == DETAILS) {
             open(_result == null ? CALC_ERROR : ACTIONS);
-        } else if (_screen == RETICLE) {
+        } else if (_state.screen == RETICLE) {
             _model.reticleType = _reticleOriginal;
             openLocateFocus(5);
-        } else if (_screen == GPS_WARNING) {
+        } else if (_state.screen == GPS_WARNING) {
             open(GPS);
-        } else if (_screen == DISCARD) {
+        } else if (_state.screen == DISCARD) {
             open(LOCATE);
-        } else if (_screen == ATMOS) {
+        } else if (_state.screen == ATMOS) {
             closeAtmosphere();
-        } else if (_screen == CALC_ERROR || _screen == HELP) {
+        } else if (_state.screen == CALC_ERROR || _state.screen == HELP) {
             _model.savePreferences();
             open(LOCATE);
         }
@@ -1848,7 +1857,7 @@ class PolarFinderView extends WatchUi.View {
         WatchUi.requestUpdate();
     }
     function onPosition(info) {
-        if (_screen != GPS || info == null || info.position == null) {
+        if (_state.screen != GPS || info == null || info.position == null) {
             return;
         }
         var d = info.position.toDegrees();
@@ -1877,7 +1886,7 @@ class PolarFinderView extends WatchUi.View {
         return s(Rez.Strings.Unavailable);
     }
     function selectGps() {
-        if (_focus == 0 && _gpsLat != null) {
+        if (_state.focus == 0 && _gpsLat != null) {
             if (
                 _gpsQualityCode == Position.QUALITY_POOR
                     || _gpsQualityCode == Position.QUALITY_LAST_KNOWN
@@ -1886,10 +1895,10 @@ class PolarFinderView extends WatchUi.View {
             } else {
                 acceptGps();
             }
-        } else if (_focus == 1) {
+        } else if (_state.focus == 1) {
             getApp().stopGps();
             beginEditor(EDIT_LAT);
-        } else if (_focus == 2) {
+        } else if (_state.focus == 2) {
             getApp().stopGps();
             stopTimers();
             open(LOCATE);
@@ -1904,7 +1913,12 @@ class PolarFinderView extends WatchUi.View {
     }
     
     function beginCalculation(restarting) {
+        _calculation.begin(self, restarting);
+    }
+    
+    function beginCalculationImpl(restarting) {
         if (!_model.confirmed || !_model.hasLocation()) {
+            _calculation.completed();
             showError(s(Rez.Strings.InvalidInputs));
             return;
         }
@@ -1913,8 +1927,8 @@ class PolarFinderView extends WatchUi.View {
         }
         _astroState = null;
         _restart = restarting;
-        _magnified = false;
-        _screen = CALC;
+        _state.magnified = false;
+        _state.screen = CALC;
         _calcStage = 0;
         _progress = 0;
         _pressureAttempts = 0;
@@ -1933,6 +1947,7 @@ class PolarFinderView extends WatchUi.View {
                 Astrometry.cancel(_astroState);
                 _astroState = null;
             }
+            _calculation.completed();
             _result = null;
             open(LOCATE);
             return;
@@ -2137,10 +2152,11 @@ class PolarFinderView extends WatchUi.View {
     }
     function showError(text) {
         stopTimers();
+        _calculation.completed();
         _errorText = text;
-        _screen = CALC_ERROR;
-        _focus = 0;
-        _scroll = 0;
+        _state.screen = CALC_ERROR;
+        _state.focus = 0;
+        _state.scroll = 0;
         if (_model.calculationAlert) {
             Attention.vibrate(
                 [
@@ -2168,13 +2184,14 @@ class PolarFinderView extends WatchUi.View {
             _lastReticle = reticleNow(initialElapsed);
         }
         open(DISPLAY);
+        _calculation.completed();
         _timer.start(method(:displayTick), 1000, true);
         if (_model.calculationAlert) {
             Attention.vibrate([new Attention.VibeProfile(50, 1)]);
         }
     }
     function displayTick() {
-        if (_screen != DISPLAY) {
+        if (_state.screen != DISPLAY) {
             stopTimers();
             return;
         }
