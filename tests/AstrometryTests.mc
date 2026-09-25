@@ -805,10 +805,10 @@ function iersEopInterpolatesAndChecksBoundsAndWarnings(logger as Test.Logger) {
     ok = ok && withinTolerance(m[:yp], (a[:yp] + b[:yp]) / 2.0, 1.0e-12d);
     ok = ok && a[:first] == first && a[:last] == last;
     ok = ok && finalDay[:status] == 0;
-    ok = ok && !IersEopData.eop(last - 30.000001)[:warning]
-        && IersEopData.eop(last - 30.0)[:warning];
-    ok = ok && IersEopData.eop(first - 0.000001)[:status] < 0
-        && IersEopData.eop(last + 0.000001)[:status] < 0;
+    ok = ok && !IersEopData.eop(last - 30.000001d)[:warning]
+        && IersEopData.eop(last - 30.0d)[:warning];
+    ok = ok && IersEopData.eop(first - 0.000001d)[:status] < 0
+        && IersEopData.eop(last + 0.000001d)[:status] < 0;
     return ok;
 }
 
