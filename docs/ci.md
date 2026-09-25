@@ -4,8 +4,8 @@
 dispatch. Feature-branch pushes do not trigger a second run alongside their PR;
 branches without a PR can be checked through manual dispatch.
 `.github/workflows/release.yml` runs on pushes of tags matching `v*`.
-`.github/workflows/update-iers.yml` runs on the first day of each month and can
-also be dispatched manually. It refreshes IERS data, validates the generated
+`.github/workflows/update-iers.yml` runs twice each week and can also be
+dispatched manually. It refreshes IERS data, validates the generated
 module and freshness, runs the simulator profiles, and opens a pull request only
 after all checks pass.
 The build and release workflows first run `make check-generated` and

@@ -2,8 +2,9 @@ name: Update IERS EOP data
 
 on:
   schedule:
-    # Bulletin A is published weekly; run monthly as a safety net.
-    - cron: '17 3 1 * *'
+    # Bulletin A is published weekly; run twice weekly so the seven-day
+    # freshness gate remains valid even when one scheduled run is delayed.
+    - cron: '17 3 * * 1,4'
   workflow_dispatch:
 
 permissions:
@@ -22,6 +23,11 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          # Manual dispatch can originate from any ref; always update from
+          # the repository's PR base so the generated branch is reviewable.
+          ref: main
+          fetch-depth: 0
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable

@@ -87,8 +87,8 @@ checked-in Monkey C module and have no regeneration or refresh dependency.
 `check-freshness` is the date-sensitive guard used by CI. It validates the
 snapshot without downloading anything: the coverage start must be no more than
 seven UTC days old, and the end must be at least 330 UTC days in the future.
-The 330-day threshold leaves room for the monthly maintenance schedule while
-retaining roughly a full year of predictions in the 368-day table.
+The twice-weekly maintenance schedule leaves margin under the seven-day start
+window while retaining roughly a full year of predictions in the 368-day table.
 
 ## Explicit refresh and failure handling
 
@@ -100,8 +100,8 @@ make update-iers
 uv run --script tools/iers.py update
 ```
 
-The repository also runs this updater automatically on the first day of each
-month and on demand through **Update IERS EOP data** in GitHub Actions. A
+The repository also runs this updater automatically twice each week and on
+demand through **Update IERS EOP data** in GitHub Actions. A
 successful run validates the generated source, freshness, formatting, and all
 three simulator test profiles, then opens a pull request containing the dated
 snapshot and generated module. If the download or any validation fails, no
