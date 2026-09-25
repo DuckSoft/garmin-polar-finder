@@ -61,6 +61,7 @@ function regressionRunCase(fixture, logger) {
     var ok = true;
     var angular = AstrometryRegressionReference.ANGULAR_TOLERANCE;
     var hourAngle = AstrometryRegressionReference.HOUR_ANGLE_TOLERANCE;
+    var propagationHourAngle = AstrometryRegressionReference.PROPAGATION_HOUR_ANGLE_TOLERANCE;
     var tangent = AstrometryRegressionReference.TANGENT_TOLERANCE;
     // ERFA's atco13 outputs: azimuth, zenith distance, hour angle,
     // declination, right ascension, equation of origins.  The remaining four
@@ -114,7 +115,7 @@ function regressionRunCase(fixture, logger) {
             && regressionAbsoluteError(actualStep[:zob], expectedStep[2]) <= angular
             && regressionAbsoluteError(actualStep[:x], expectedStep[3]) <= tangent
             && regressionAbsoluteError(actualStep[:y], expectedStep[4]) <= tangent
-            && regressionAngleError(actualStep[:hourAngle], expectedStep[5]) <= hourAngle
+            && regressionAngleError(actualStep[:hourAngle], expectedStep[5]) <= propagationHourAngle
             && regressionAbsoluteError(actualStep[:poleDistance], expectedStep[6]) <= angular;
         if (!stepOk) {
             logger.debug(

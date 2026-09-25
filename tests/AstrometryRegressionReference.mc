@@ -8,6 +8,9 @@ module AstrometryRegressionReference {
     // 1 arcsec on the frozen Polaris vector; keep this tolerance local
     // instead of weakening the other angular comparisons.
     var HOUR_ANGLE_TOLERANCE = 6.0e-6d;
+    // reticleAt derives hour angle from a near-pole tangent pair;
+    // propagation magnifies sub-arcsecond X/Y drift in that coordinate.
+    var PROPAGATION_HOUR_ANGLE_TOLERANCE = 2.0e-5d;
     var TANGENT_TOLERANCE = 2.0e-6d;
     var CASES = [
         {
